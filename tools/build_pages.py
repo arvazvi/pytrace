@@ -352,15 +352,15 @@ def page(*, path, title, description, body, jsonld, og_type="article", current=N
 <title>{E(title)}</title>
 <meta name="description" content="{E(description)}">
 <link rel="canonical" href="{url}">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta property="og:type" content="{og_type}">
 <meta property="og:site_name" content="PyTrace">
 <meta property="og:url" content="{url}">
 <meta property="og:title" content="{E(title)}">
 <meta property="og:description" content="{E(description)}">
-<meta property="og:image" content="{SITE}/og.png">
+<meta property="og:image" content="{SITE}/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -468,7 +468,7 @@ def example_page(ex, i):
                 "headline": ex["title"],
                 "description": ex["description"],
                 "url": SITE + path,
-                "image": SITE + "/og.png",
+                "image": SITE + "/assets/og.png",
                 "dateModified": TODAY,
                 "author": {"@type": "Person", "name": "Aldo V", "url": "https://github.com/arvazvi"},
                 "publisher": {"@type": "Organization", "name": "PyTrace", "url": SITE + "/"},
