@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algorithm Visualization Examples in Python | PyTrace</title>
+<meta name="description" content="Step-by-step Python visualizations of common algorithm patterns: two pointers, sliding window, binary search, linked lists, BFS, backtracking and DP.">
+<link rel="canonical" href="https://pytrace.app/examples/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PyTrace">
+<meta property="og:url" content="https://pytrace.app/examples/">
+<meta property="og:title" content="Algorithm Visualization Examples in Python | PyTrace">
+<meta property="og:description" content="Step-by-step Python visualizations of common algorithm patterns: two pointers, sliding window, binary search, linked lists, BFS, backtracking and DP.">
+<meta property="og:image" content="https://pytrace.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+  // same theme logic as the visualizer: saved choice, else the OS preference (before first paint)
+  (() => {
+    let t = null;
+    try { t = JSON.parse(localStorage.getItem("viz.state.v1") || "{}").theme; } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "CollectionPage",
+   "name": "Algorithm Visualization Examples in Python",
+   "description": "Step-by-step Python visualizations of common algorithm patterns: two pointers, sliding window, binary search, linked lists, BFS, backtracking and DP.",
+   "url": "https://pytrace.app/examples/",
+   "hasPart": [
+    {
+     "@type": "TechArticle",
+     "name": "Two Pointers Visualization in Python",
+     "url": "https://pytrace.app/examples/two-pointers/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Sliding Window Visualization in Python",
+     "url": "https://pytrace.app/examples/sliding-window/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Binary Search Visualization in Python",
+     "url": "https://pytrace.app/examples/binary-search/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Reverse a Linked List – Python Visualization",
+     "url": "https://pytrace.app/examples/reverse-linked-list/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Level Order Traversal Visualization (Python BFS)",
+     "url": "https://pytrace.app/examples/binary-tree-level-order-traversal/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Number of Islands: Grid BFS Visualization",
+     "url": "https://pytrace.app/examples/number-of-islands/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Recursion and Backtracking Visualization in Python",
+     "url": "https://pytrace.app/examples/backtracking-subsets/"
+    },
+    {
+     "@type": "TechArticle",
+     "name": "Dynamic Programming Visualization in Python",
+     "url": "https://pytrace.app/examples/dynamic-programming-coin-change/"
+    }
+   ]
+  },
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "PyTrace",
+     "item": "https://pytrace.app/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "Examples",
+     "item": "https://pytrace.app/examples/"
+    }
+   ]
+  }
+ ]
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="logo"><a href="/">PyTrace</a><span class="tagline"> · Python algorithm visualizer</span></div>
+  <span class="ver">v1.0.0</span>
+  <nav>
+    <a class="navlink" href="/">Visualizer</a><a class="navlink" href="/examples/" aria-current="page">Examples</a><a class="navlink" href="/about/">About</a>
+    <a class="gh-link" href="https://github.com/arvazvi/pytrace" rel="noopener" title="Source code on GitHub" aria-label="PyTrace on GitHub"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    <button id="themeBtn" class="icon" aria-label="Toggle light/dark mode"><svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </nav>
+</header>
+<main>
+<section class="card hero"><div class="card-head"><span class="label">Examples</span><span class="spacer"></span><a class="run" href="/"><span class="ico">▶</span>Open the visualizer</a></div><div class="card-body"><h1>Algorithm Visualization Examples in Python</h1><p>The algorithm patterns that come up again and again in LeetCode problems and coding interviews. Each example explains the idea, shows a short Python solution and opens it in the visualizer, where you can watch it run line by line: pointers moving over arrays, trees and grids being explored, the call stack growing and shrinking.</p></div></section>
+<div class="grid-cards"><article class="card ex-card"><div class="card-head"><h2><a href="/examples/two-pointers/">Two pointers</a></h2><span class="spacer"></span><span class="meta">LC 167</span></div>
+<div class="card-body"><p>See the two pointers technique step by step: watch left and right close in on a sorted array in an animated Python visualization (Two Sum II, LeetCode 167).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIHR3b1N1bShzZWxmLCBudW1iZXJzOiBMaXN0W2ludF0sIHRhcmdldDogaW50KSAtPiBMaXN0W2ludF06XG4gICAgICAgIGxlZnQsIHJpZ2h0ID0gMCwgbGVuKG51bWJlcnMpIC0gMVxuICAgICAgICB3aGlsZSBsZWZ0IDwgcmlnaHQ6XG4gICAgICAgICAgICB0b3RhbCA9IG51bWJlcnNbbGVmdF0gKyBudW1iZXJzW3JpZ2h0XVxuICAgICAgICAgICAgaWYgdG90YWwgPT0gdGFyZ2V0OlxuICAgICAgICAgICAgICAgIHJldHVybiBbbGVmdCArIDEsIHJpZ2h0ICsgMV1cbiAgICAgICAgICAgIGlmIHRvdGFsIDwgdGFyZ2V0OlxuICAgICAgICAgICAgICAgIGxlZnQgKz0gMVxuICAgICAgICAgICAgZWxzZTpcbiAgICAgICAgICAgICAgICByaWdodCAtPSAxXG4gICAgICAgIHJldHVybiBbXVxuIiwibWV0aG9kIjoidHdvU3VtIiwiY2FzZXMiOlt7ImFyZ3MiOnsibnVtYmVycyI6IlsxLDIsMyw0LDYsOCwxMSwxNV0iLCJ0YXJnZXQiOiIxNCJ9LCJleHBlY3RlZCI6eyJ0d29TdW0iOiJbMyw3XSJ9LCJvcHMiOiIiLCJvcGFyZ3MiOiIifV19"><span class="ico">▶</span>Run</a><a class="more" href="/examples/two-pointers/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/sliding-window/">Sliding window</a></h2><span class="spacer"></span><span class="meta">LC 3</span></div>
+<div class="card-body"><p>Watch a sliding window grow and shrink over a string, step by step, in an animated Python visualization (Longest Substring Without Repeating Characters).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIGxlbmd0aE9mTG9uZ2VzdFN1YnN0cmluZyhzZWxmLCBzOiBzdHIpIC0-IGludDpcbiAgICAgICAgc2VlbiA9IHNldCgpXG4gICAgICAgIGxlZnQgPSBiZXN0ID0gMFxuICAgICAgICBmb3IgcmlnaHQgaW4gcmFuZ2UobGVuKHMpKTpcbiAgICAgICAgICAgIHdoaWxlIHNbcmlnaHRdIGluIHNlZW46XG4gICAgICAgICAgICAgICAgc2Vlbi5yZW1vdmUoc1tsZWZ0XSlcbiAgICAgICAgICAgICAgICBsZWZ0ICs9IDFcbiAgICAgICAgICAgIHNlZW4uYWRkKHNbcmlnaHRdKVxuICAgICAgICAgICAgYmVzdCA9IG1heChiZXN0LCByaWdodCAtIGxlZnQgKyAxKVxuICAgICAgICByZXR1cm4gYmVzdFxuIiwibWV0aG9kIjoibGVuZ3RoT2ZMb25nZXN0U3Vic3RyaW5nIiwiY2FzZXMiOlt7ImFyZ3MiOnsicyI6IlwiYWJjYWJjYmJcIiJ9LCJleHBlY3RlZCI6eyJsZW5ndGhPZkxvbmdlc3RTdWJzdHJpbmciOiIzIn0sIm9wcyI6IiIsIm9wYXJncyI6IiJ9XX0"><span class="ico">▶</span>Run</a><a class="more" href="/examples/sliding-window/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/binary-search/">Binary search</a></h2><span class="spacer"></span><span class="meta">LC 704</span></div>
+<div class="card-body"><p>Visualize binary search step by step: see lo, mid and hi move over a sorted array and the search space halve on every comparison (LeetCode 704).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIHNlYXJjaChzZWxmLCBudW1zOiBMaXN0W2ludF0sIHRhcmdldDogaW50KSAtPiBpbnQ6XG4gICAgICAgIGxvLCBoaSA9IDAsIGxlbihudW1zKSAtIDFcbiAgICAgICAgd2hpbGUgbG8gPD0gaGk6XG4gICAgICAgICAgICBtaWQgPSAobG8gKyBoaSkgLy8gMlxuICAgICAgICAgICAgaWYgbnVtc1ttaWRdID09IHRhcmdldDpcbiAgICAgICAgICAgICAgICByZXR1cm4gbWlkXG4gICAgICAgICAgICBpZiBudW1zW21pZF0gPCB0YXJnZXQ6XG4gICAgICAgICAgICAgICAgbG8gPSBtaWQgKyAxXG4gICAgICAgICAgICBlbHNlOlxuICAgICAgICAgICAgICAgIGhpID0gbWlkIC0gMVxuICAgICAgICByZXR1cm4gLTFcbiIsIm1ldGhvZCI6InNlYXJjaCIsImNhc2VzIjpbeyJhcmdzIjp7Im51bXMiOiJbLTEsMCwzLDUsOSwxMiwxNywyMSwzMCw0Ml0iLCJ0YXJnZXQiOiIyMSJ9LCJleHBlY3RlZCI6eyJzZWFyY2giOiI3In0sIm9wcyI6IiIsIm9wYXJncyI6IiJ9XX0"><span class="ico">▶</span>Run</a><a class="more" href="/examples/binary-search/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/reverse-linked-list/">Reverse a linked list</a></h2><span class="spacer"></span><span class="meta">LC 206</span></div>
+<div class="card-body"><p>See how reversing a linked list works: watch prev, curr and next move and each arrow flip, step by step, in an animated Python visualization (LeetCode 206).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIHJldmVyc2VMaXN0KHNlbGYsIGhlYWQ6IE9wdGlvbmFsW0xpc3ROb2RlXSkgLT4gT3B0aW9uYWxbTGlzdE5vZGVdOlxuICAgICAgICBwcmV2ID0gTm9uZVxuICAgICAgICBjdXJyID0gaGVhZFxuICAgICAgICB3aGlsZSBjdXJyOlxuICAgICAgICAgICAgbnh0ID0gY3Vyci5uZXh0XG4gICAgICAgICAgICBjdXJyLm5leHQgPSBwcmV2XG4gICAgICAgICAgICBwcmV2ID0gY3VyclxuICAgICAgICAgICAgY3VyciA9IG54dFxuICAgICAgICByZXR1cm4gcHJldlxuIiwibWV0aG9kIjoicmV2ZXJzZUxpc3QiLCJjYXNlcyI6W3siYXJncyI6eyJoZWFkIjoiWzEsMiwzLDQsNV0ifSwiZXhwZWN0ZWQiOnsicmV2ZXJzZUxpc3QiOiJbNSw0LDMsMiwxXSJ9LCJvcHMiOiIiLCJvcGFyZ3MiOiIifV19"><span class="ico">▶</span>Run</a><a class="more" href="/examples/reverse-linked-list/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/binary-tree-level-order-traversal/">Binary tree BFS</a></h2><span class="spacer"></span><span class="meta">LC 102</span></div>
+<div class="card-body"><p>Visualize breadth-first search on a binary tree: watch the queue and the tree level by level in an animated Python step-by-step trace (LeetCode 102).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIGxldmVsT3JkZXIoc2VsZiwgcm9vdDogT3B0aW9uYWxbVHJlZU5vZGVdKSAtPiBMaXN0W0xpc3RbaW50XV06XG4gICAgICAgIGlmIG5vdCByb290OlxuICAgICAgICAgICAgcmV0dXJuIFtdXG4gICAgICAgIHJlc3VsdCA9IFtdXG4gICAgICAgIHF1ZXVlID0gZGVxdWUoW3Jvb3RdKVxuICAgICAgICB3aGlsZSBxdWV1ZTpcbiAgICAgICAgICAgIGxldmVsID0gW11cbiAgICAgICAgICAgIGZvciBfIGluIHJhbmdlKGxlbihxdWV1ZSkpOlxuICAgICAgICAgICAgICAgIG5vZGUgPSBxdWV1ZS5wb3BsZWZ0KClcbiAgICAgICAgICAgICAgICBsZXZlbC5hcHBlbmQobm9kZS52YWwpXG4gICAgICAgICAgICAgICAgaWYgbm9kZS5sZWZ0OlxuICAgICAgICAgICAgICAgICAgICBxdWV1ZS5hcHBlbmQobm9kZS5sZWZ0KVxuICAgICAgICAgICAgICAgIGlmIG5vZGUucmlnaHQ6XG4gICAgICAgICAgICAgICAgICAgIHF1ZXVlLmFwcGVuZChub2RlLnJpZ2h0KVxuICAgICAgICAgICAgcmVzdWx0LmFwcGVuZChsZXZlbClcbiAgICAgICAgcmV0dXJuIHJlc3VsdFxuIiwibWV0aG9kIjoibGV2ZWxPcmRlciIsImNhc2VzIjpbeyJhcmdzIjp7InJvb3QiOiJbMyw5LDIwLG51bGwsbnVsbCwxNSw3XSJ9LCJleHBlY3RlZCI6eyJsZXZlbE9yZGVyIjoiW1szXSxbOSwyMF0sWzE1LDddXSJ9LCJvcHMiOiIiLCJvcGFyZ3MiOiIifV19"><span class="ico">▶</span>Run</a><a class="more" href="/examples/binary-tree-level-order-traversal/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/number-of-islands/">Grid BFS (islands)</a></h2><span class="spacer"></span><span class="meta">LC 200</span></div>
+<div class="card-body"><p>Watch breadth-first search flood-fill a 2D grid step by step. An animated Python visualization of Number of Islands (LeetCode 200) with the matrix and queue.</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIG51bUlzbGFuZHMoc2VsZiwgZ3JpZDogTGlzdFtMaXN0W3N0cl1dKSAtPiBpbnQ6XG4gICAgICAgIHJvd3MsIGNvbHMgPSBsZW4oZ3JpZCksIGxlbihncmlkWzBdKVxuICAgICAgICBpc2xhbmRzID0gMFxuICAgICAgICBmb3IgciBpbiByYW5nZShyb3dzKTpcbiAgICAgICAgICAgIGZvciBjIGluIHJhbmdlKGNvbHMpOlxuICAgICAgICAgICAgICAgIGlmIGdyaWRbcl1bY10gIT0gXCIxXCI6XG4gICAgICAgICAgICAgICAgICAgIGNvbnRpbnVlXG4gICAgICAgICAgICAgICAgaXNsYW5kcyArPSAxXG4gICAgICAgICAgICAgICAgZ3JpZFtyXVtjXSA9IFwiMFwiXG4gICAgICAgICAgICAgICAgcXVldWUgPSBkZXF1ZShbKHIsIGMpXSlcbiAgICAgICAgICAgICAgICB3aGlsZSBxdWV1ZTpcbiAgICAgICAgICAgICAgICAgICAgaSwgaiA9IHF1ZXVlLnBvcGxlZnQoKVxuICAgICAgICAgICAgICAgICAgICBmb3IgbmksIG5qIGluICgoaSArIDEsIGopLCAoaSAtIDEsIGopLCAoaSwgaiArIDEpLCAoaSwgaiAtIDEpKTpcbiAgICAgICAgICAgICAgICAgICAgICAgIGlmIDAgPD0gbmkgPCByb3dzIGFuZCAwIDw9IG5qIDwgY29scyBhbmQgZ3JpZFtuaV1bbmpdID09IFwiMVwiOlxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIGdyaWRbbmldW25qXSA9IFwiMFwiXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgcXVldWUuYXBwZW5kKChuaSwgbmopKVxuICAgICAgICByZXR1cm4gaXNsYW5kc1xuIiwibWV0aG9kIjoibnVtSXNsYW5kcyIsImNhc2VzIjpbeyJhcmdzIjp7ImdyaWQiOiJbW1wiMVwiLFwiMVwiLFwiMFwiLFwiMFwiLFwiMFwiXSxbXCIxXCIsXCIxXCIsXCIwXCIsXCIwXCIsXCIwXCJdLFtcIjBcIixcIjBcIixcIjFcIixcIjBcIixcIjBcIl0sW1wiMFwiLFwiMFwiLFwiMFwiLFwiMVwiLFwiMVwiXV0ifSwiZXhwZWN0ZWQiOnsibnVtSXNsYW5kcyI6IjMifSwib3BzIjoiIiwib3BhcmdzIjoiIn1dfQ"><span class="ico">▶</span>Run</a><a class="more" href="/examples/number-of-islands/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/backtracking-subsets/">Recursion &amp; backtracking</a></h2><span class="spacer"></span><span class="meta">LC 78</span></div>
+<div class="card-body"><p>Visualize recursion and backtracking with the call stack: watch every recursive call push and pop while generating all subsets, step by step (LeetCode 78).</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIHN1YnNldHMoc2VsZiwgbnVtczogTGlzdFtpbnRdKSAtPiBMaXN0W0xpc3RbaW50XV06XG4gICAgICAgIHJlc3VsdCA9IFtdXG4gICAgICAgIHBhdGggPSBbXVxuXG4gICAgICAgIGRlZiBiYWNrdHJhY2soc3RhcnQpOlxuICAgICAgICAgICAgcmVzdWx0LmFwcGVuZChwYXRoWzpdKVxuICAgICAgICAgICAgZm9yIGkgaW4gcmFuZ2Uoc3RhcnQsIGxlbihudW1zKSk6XG4gICAgICAgICAgICAgICAgcGF0aC5hcHBlbmQobnVtc1tpXSlcbiAgICAgICAgICAgICAgICBiYWNrdHJhY2soaSArIDEpXG4gICAgICAgICAgICAgICAgcGF0aC5wb3AoKVxuXG4gICAgICAgIGJhY2t0cmFjaygwKVxuICAgICAgICByZXR1cm4gcmVzdWx0XG4iLCJtZXRob2QiOiJzdWJzZXRzIiwiY2FzZXMiOlt7ImFyZ3MiOnsibnVtcyI6IlsxLDIsM10ifSwiZXhwZWN0ZWQiOnsic3Vic2V0cyI6IltbXSxbMV0sWzEsMl0sWzEsMiwzXSxbMSwzXSxbMl0sWzIsM10sWzNdXSJ9LCJvcHMiOiIiLCJvcGFyZ3MiOiIifV19"><span class="ico">▶</span>Run</a><a class="more" href="/examples/backtracking-subsets/">How it works →</a></div></article><article class="card ex-card"><div class="card-head"><h2><a href="/examples/dynamic-programming-coin-change/">Dynamic programming</a></h2><span class="spacer"></span><span class="meta">LC 322</span></div>
+<div class="card-body"><p>See a bottom-up dynamic programming table fill in, step by step. Animated Python visualization of Coin Change (LeetCode 322) with the dp array.</p></div>
+<div class="foot"><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIGNvaW5DaGFuZ2Uoc2VsZiwgY29pbnM6IExpc3RbaW50XSwgYW1vdW50OiBpbnQpIC0-IGludDpcbiAgICAgICAgZHAgPSBbMF0gKyBbaW5mXSAqIGFtb3VudFxuICAgICAgICBmb3IgYSBpbiByYW5nZSgxLCBhbW91bnQgKyAxKTpcbiAgICAgICAgICAgIGZvciBjb2luIGluIGNvaW5zOlxuICAgICAgICAgICAgICAgIGlmIGNvaW4gPD0gYSBhbmQgZHBbYSAtIGNvaW5dICsgMSA8IGRwW2FdOlxuICAgICAgICAgICAgICAgICAgICBkcFthXSA9IGRwW2EgLSBjb2luXSArIDFcbiAgICAgICAgcmV0dXJuIGRwW2Ftb3VudF0gaWYgZHBbYW1vdW50XSAhPSBpbmYgZWxzZSAtMVxuIiwibWV0aG9kIjoiY29pbkNoYW5nZSIsImNhc2VzIjpbeyJhcmdzIjp7ImNvaW5zIjoiWzEsMiw1XSIsImFtb3VudCI6IjExIn0sImV4cGVjdGVkIjp7ImNvaW5DaGFuZ2UiOiIzIn0sIm9wcyI6IiIsIm9wYXJncyI6IiJ9XX0"><span class="ico">▶</span>Run</a><a class="more" href="/examples/dynamic-programming-coin-change/">How it works →</a></div></article></div>
+</main>
+<footer class="site-footer">
+  <a href="/examples/">Examples</a>
+  <a href="/about/">About</a>
+  <a href="https://github.com/arvazvi/pytrace" rel="noopener">GitHub</a>
+</footer>
+<script src="/assets/site.js"></script>
+</body>
+</html>

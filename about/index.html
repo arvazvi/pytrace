@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About PyTrace – Step-by-Step Python Algorithm Visualizer</title>
+<meta name="description" content="PyTrace runs your Python code line by line and animates arrays with pointers, matrices, linked lists, trees, graphs and the call stack. Free, in your browser.">
+<link rel="canonical" href="https://pytrace.app/about/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PyTrace">
+<meta property="og:url" content="https://pytrace.app/about/">
+<meta property="og:title" content="About PyTrace – Step-by-Step Python Algorithm Visualizer">
+<meta property="og:description" content="PyTrace runs your Python code line by line and animates arrays with pointers, matrices, linked lists, trees, graphs and the call stack. Free, in your browser.">
+<meta property="og:image" content="https://pytrace.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+  // same theme logic as the visualizer: saved choice, else the OS preference (before first paint)
+  (() => {
+    let t = null;
+    try { t = JSON.parse(localStorage.getItem("viz.state.v1") || "{}").theme; } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "AboutPage",
+   "name": "About PyTrace – Step-by-Step Python Algorithm Visualizer",
+   "description": "PyTrace runs your Python code line by line and animates arrays with pointers, matrices, linked lists, trees, graphs and the call stack. Free, in your browser.",
+   "url": "https://pytrace.app/about/",
+   "about": {
+    "@id": "https://pytrace.app/#app"
+   }
+  },
+  {
+   "@type": "FAQPage",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "Does my code leave my computer?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. PyTrace runs CPython compiled to WebAssembly (Pyodide) inside your browser tab. There is no server, and your code, test cases and layout are only saved in your browser's localStorage."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Can I paste my LeetCode solution as-is?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. Write it in the usual class Solution format (plain functions and scripts work too). PyTrace detects the method parameters and creates input fields. ListNode and TreeNode inputs use LeetCode notation such as [1,2,3] or [3,9,20,null,null,15,7], and common imports like collections, heapq and bisect are preloaded."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Are there limits?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Each run records up to 5,000 steps, and visualizations are capped (arrays up to 80 cells, matrices up to 40×40). It is meant for small inputs, not for measuring performance. Threads, subprocesses and sockets are not available."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Is PyTrace free?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. PyTrace is free, open source and needs no sign-up."
+     }
+    }
+   ]
+  },
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "PyTrace",
+     "item": "https://pytrace.app/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "About",
+     "item": "https://pytrace.app/about/"
+    }
+   ]
+  }
+ ]
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="logo"><a href="/">PyTrace</a><span class="tagline"> · Python algorithm visualizer</span></div>
+  <span class="ver">v1.0.0</span>
+  <nav>
+    <a class="navlink" href="/">Visualizer</a><a class="navlink" href="/examples/">Examples</a><a class="navlink" href="/about/" aria-current="page">About</a>
+    <a class="gh-link" href="https://github.com/arvazvi/pytrace" rel="noopener" title="Source code on GitHub" aria-label="PyTrace on GitHub"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    <button id="themeBtn" class="icon" aria-label="Toggle light/dark mode"><svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </nav>
+</header>
+<main>
+<section class="card hero"><div class="card-head"><span class="label">About</span><span class="spacer"></span><a class="run" href="/"><span class="ico">▶</span>Open the visualizer</a></div><div class="card-body"><h1>Visualize Python algorithms step by step</h1><p>PyTrace is a free <strong>algorithm visualizer for Python</strong>. Paste your solution to a LeetCode-style problem, fill in the inputs and press <b>Run</b>: PyTrace executes your code line by line and animates what happens at every step. You see <strong>arrays with their index pointers</strong> (<code>i</code>, <code>j</code>, <code>left</code>, <code>right</code>…), <strong>matrices and grids</strong>, <strong>hash maps</strong>, <strong>linked lists</strong>, <strong>binary trees</strong>, <strong>graphs</strong>, local variables and the <strong>call stack</strong>, and you can play, pause and scrub back and forth through the execution.</p><p>It is the tool I wanted while studying for coding interviews: seeing how two pointers close in, how a sliding window grows and shrinks, how a tree gets traversed or why a recursive function never stops is much easier than tracing it in your head or filling your code with <code>print</code>s.</p></div></section>
+<div class="cols-2"><div class="stack"><section class="card "><div class="card-head"><h2>What it visualizes</h2><span class="spacer"></span></div><div class="card-body"><ul>
+<li><b>Lists, tuples, strings and <code>deque</code></b> as arrays of cells, with index variables drawn as pointers</li>
+<li><b>Lists of lists</b> as 2D grids and matrices</li>
+<li><b><code>dict</code>, <code>defaultdict</code>, <code>Counter</code></b> as key → value tables, and <b><code>set</code></b> as chips</li>
+<li><b>Linked lists</b> (<code>ListNode</code> or anything with <code>next</code>, <code>prev</code>, <code>random</code>)</li>
+<li><b>Binary trees</b> (<code>TreeNode</code> or anything with <code>left</code> / <code>right</code>)</li>
+<li><b>N-ary trees and graphs</b> (objects with <code>children</code> / <code>neighbors</code>)</li>
+<li>The <b>call stack</b>, recursion included, and the <b>comparisons</b> evaluated on the current line</li>
+</ul></div></section><section class="card "><div class="card-head"><h2>Runs entirely in your browser</h2><span class="spacer"></span></div><div class="card-body"><p>PyTrace uses <a href="https://pyodide.org" rel="noopener">Pyodide</a>, CPython compiled to WebAssembly. There is no server: your code runs on your own machine and never leaves it. It is free and <a href="https://github.com/arvazvi/pytrace" rel="noopener">open source</a>.</p></div></section></div><div class="stack"><section class="card "><div class="card-head"><h2>Made for LeetCode practice</h2><span class="spacer"></span></div><div class="card-body"><ul>
+<li>Paste a <code>class Solution</code> as-is: PyTrace detects the method and its parameters and creates input fields</li>
+<li>Inputs in LeetCode notation: <code>[1,2,3]</code>, <code>[3,9,20,null,null,15,7]</code></li>
+<li>Design problems such as <code>LRUCache</code> or <code>MinStack</code> with operation lists</li>
+<li>Several test cases, each with an optional expected value</li>
+<li><code>ListNode</code>, <code>TreeNode</code>, <code>collections</code>, <code>heapq</code>, <code>bisect</code>… preloaded</li>
+<li>Share your solution with a link (🔗 Share)</li>
+</ul></div></section><section class="card "><div class="card-head"><h2>Examples</h2><span class="spacer"></span></div><div class="card-body"><ul class="chips"><li><a href="/examples/two-pointers/">Two pointers</a></li><li><a href="/examples/sliding-window/">Sliding window</a></li><li><a href="/examples/binary-search/">Binary search</a></li><li><a href="/examples/reverse-linked-list/">Reverse a linked list</a></li><li><a href="/examples/binary-tree-level-order-traversal/">Binary tree BFS</a></li><li><a href="/examples/number-of-islands/">Grid BFS (islands)</a></li><li><a href="/examples/backtracking-subsets/">Recursion &amp; backtracking</a></li><li><a href="/examples/dynamic-programming-coin-change/">Dynamic programming</a></li></ul></div></section></div></div>
+<section class="card "><div class="card-head"><h2>FAQ</h2><span class="spacer"></span></div><div class="card-body"><details><summary>Does my code leave my computer?</summary><p>No. PyTrace runs CPython compiled to WebAssembly (Pyodide) inside your browser tab. There is no server, and your code, test cases and layout are only saved in your browser&#x27;s localStorage.</p></details><details><summary>Can I paste my LeetCode solution as-is?</summary><p>Yes. Write it in the usual class Solution format (plain functions and scripts work too). PyTrace detects the method parameters and creates input fields. ListNode and TreeNode inputs use LeetCode notation such as [1,2,3] or [3,9,20,null,null,15,7], and common imports like collections, heapq and bisect are preloaded.</p></details><details><summary>Are there limits?</summary><p>Each run records up to 5,000 steps, and visualizations are capped (arrays up to 80 cells, matrices up to 40×40). It is meant for small inputs, not for measuring performance. Threads, subprocesses and sockets are not available.</p></details><details><summary>Is PyTrace free?</summary><p>Yes. PyTrace is free, open source and needs no sign-up.</p></details><p class="muted" style="margin-top:12px">Found a bug or have an idea? <a href="https://github.com/arvazvi/pytrace/issues" rel="noopener">Open an issue on GitHub</a>.</p></div></section>
+</main>
+<footer class="site-footer">
+  <a href="/examples/">Examples</a>
+  <a href="/about/">About</a>
+  <a href="https://github.com/arvazvi/pytrace" rel="noopener">GitHub</a>
+</footer>
+<script src="/assets/site.js"></script>
+</body>
+</html>

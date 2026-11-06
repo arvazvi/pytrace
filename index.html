@@ -3,8 +3,59 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PyTrace · Step through your Python code</title>
-<meta name="description" content="Run your Python solution step by step and visualize arrays, matrices, trees, graphs, the call stack and variables. Runs 100% in your browser.">
+<title>PyTrace – Python Algorithm Visualizer for LeetCode</title>
+<meta name="description" content="Visualize your Python LeetCode solutions step by step: arrays with pointers, matrices, linked lists, trees, graphs and the call stack. Free, in your browser.">
+<link rel="canonical" href="https://pytrace.app/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#0f1115">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PyTrace">
+<meta property="og:url" content="https://pytrace.app/">
+<meta property="og:title" content="PyTrace – Python Algorithm Visualizer for LeetCode">
+<meta property="og:description" content="Step through your Python solution line by line and watch pointers, arrays, trees, linked lists and the call stack change. Free, no sign-up, runs in your browser.">
+<meta property="og:image" content="https://pytrace.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PyTrace visualizing a two-pointer Python solution step by step">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://pytrace.app/#app",
+      "name": "PyTrace",
+      "alternateName": "PyTrace Python Algorithm Visualizer",
+      "url": "https://pytrace.app/",
+      "description": "Step-by-step visualizer for Python solutions to LeetCode-style problems. Shows variables, the call stack, comparisons and animated data structures: arrays with index pointers, matrices, dicts, sets, linked lists, binary trees and graphs.",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Algorithm visualization",
+      "operatingSystem": "Any (web browser)",
+      "browserRequirements": "Requires JavaScript and WebAssembly",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "image": "https://pytrace.app/og.png",
+      "screenshot": "https://pytrace.app/og.png",
+      "softwareVersion": "1.0.0",
+      "license": "https://github.com/arvazvi/pytrace",
+      "codeRepository": "https://github.com/arvazvi/pytrace",
+      "programmingLanguage": "Python",
+      "featureList": [
+        "Step through Python code line by line, forwards and backwards",
+        "Arrays and strings with index variables drawn as pointers",
+        "2D grids and matrices",
+        "Linked lists, binary trees, N-ary trees and graphs",
+        "Call stack and recursion visualization",
+        "LeetCode class Solution format, design problems and multiple test cases",
+        "Runs 100% in the browser with Pyodide (WebAssembly)"
+      ]
+    }
+  ]
+}
+</script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/idea.min.css">
@@ -74,6 +125,11 @@
     position: sticky; top: 0; z-index: 20; background: var(--header-bg);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
   header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; white-space: nowrap; }
+  header h1 .brand { color: inherit; text-decoration: none; }
+  header h1 .tagline { color: var(--muted); font-weight: 400; font-size: 13px; }
+  @media (max-width: 1100px) { header h1 .tagline { display: none; } }
+  @media (max-width: 760px) { #shareBtn, #restoreBtn { display: none; } }
+  header #shareBtn, header #restoreBtn { padding: 4px 10px; font-size: 12px; }
   #saved { color: var(--muted); font-size: 12px; transition: opacity .4s; white-space: nowrap; }
   #status { margin-left: auto; color: var(--muted); font-size: 13px; min-width: 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -237,6 +293,12 @@
 
   .empty { color: var(--muted); }
   .hidden { display: none !important; }
+  /* ---- small footer below the app ---- */
+  .site-footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; padding: 14px 16px 22px;
+    font-size: 12px; color: var(--muted); }
+  .site-footer a, .noscript a { color: var(--muted); text-decoration: none; }
+  .site-footer a:hover, .site-footer a:focus-visible { color: var(--text); }
+  .noscript { max-width: 880px; margin: 24px auto; padding: 0 24px; }
   #hiddenCards { display: none; }
 
   #event { font-family: var(--mono); display: flex; flex-direction: column; justify-content: center; }
@@ -342,8 +404,10 @@
 </head>
 <body>
 <header>
-  <h1>PyTrace</h1>
+  <h1><a class="brand" href="/">PyTrace</a><span class="tagline"> · Python algorithm visualizer</span></h1>
   <span class="ver" title="PyTrace version">v1.0.0</span>
+  <button id="shareBtn" title="Copy a link to this code and its test cases">🔗 Share</button>
+  <button id="restoreBtn" class="hidden" title="Bring back the code you had before opening this link">↩ My previous code</button>
   <span id="saved"></span>
   <span id="status">Loading Python (Pyodide)…</span>
   <div class="runtime" id="runtime" tabindex="0" aria-label="Python runtime status" aria-describedby="rtTip">
@@ -442,6 +506,14 @@
   </div>
   <div id="hiddenCards"></div>
 </main>
+
+<noscript><p class="noscript">PyTrace is a step-by-step Python algorithm visualizer that runs in your browser. It needs JavaScript and WebAssembly. <a href="https://github.com/arvazvi/pytrace">Source code on GitHub</a>.</p></noscript>
+
+<footer class="site-footer">
+  <a href="/examples/">Examples</a>
+  <a href="/about/">About</a>
+  <a href="https://github.com/arvazvi/pytrace" rel="noopener">GitHub</a>
+</footer>
 
 <!-- ===================== Tracer (runs inside Pyodide) ===================== -->
 <script type="text/x-python" id="tracer-src">
@@ -1212,6 +1284,49 @@ function save() {
     }
   }, 400);
 }
+function flashSaved(text) {
+  const el = $("saved");
+  el.textContent = text;
+  el.style.opacity = 1;
+  clearTimeout(savedFade);
+  savedFade = setTimeout(() => { el.style.opacity = 0; }, 2200);
+}
+
+// ===================== Share links (#s=<base64url JSON>) =====================
+// payload: { code, method, cases: [{ args, expected, ops, opargs }] }
+function b64urlEncode(str) {
+  let bin = "";
+  new TextEncoder().encode(str).forEach((b) => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDecode(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+const BACKUP = "viz.backup.v1";
+let fromLink = false;
+(() => {
+  const m = location.hash.match(/^#s=([\w-]+)$/);
+  if (!m) return;
+  try {
+    const s = JSON.parse(b64urlDecode(m[1]));
+    if (typeof s.code !== "string") throw new Error("no code");
+    const obj = (o) => (o && typeof o === "object" && !Array.isArray(o) ? o : {});
+    const cases = (Array.isArray(s.cases) && s.cases.length ? s.cases : [{}]).map((c) => ({
+      args: obj(c.args), expected: obj(c.expected), ops: String(c.ops || ""), opargs: String(c.opargs || ""),
+    }));
+    // keep the user's own work so opening a link never destroys it
+    if (state.code !== s.code && state.code.trim() !== TEMPLATE.trim()) {
+      localStorage.setItem(BACKUP, JSON.stringify({ code: state.code, cases: state.cases, caseIdx: state.caseIdx, method: state.method }));
+    }
+    Object.assign(state, { code: s.code, cases, caseIdx: 0, method: typeof s.method === "string" ? s.method : null });
+    fromLink = true;
+    save();
+  } catch (e) {
+    console.warn("Invalid share link", e);
+  }
+  history.replaceState(null, "", location.pathname + location.search);
+})();
 
 // ===================== Constants and state =====================
 // CSS variables, so pointer colors follow the active theme without re-rendering
@@ -1415,6 +1530,32 @@ function deleteCase(i) {
   if (wasActive) { renderInputs(); if (canRun()) runTrace(); }
 }
 renderCaseTabs();
+
+$("shareBtn").onclick = async () => {
+  const payload = { code: editor.getValue(), method: state.method, cases: state.cases };
+  const url = `${location.origin}${location.pathname}#s=${b64urlEncode(JSON.stringify(payload))}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    flashSaved("✓ Link copied");
+  } catch (e) {
+    window.prompt("Copy this link:", url);
+  }
+};
+
+if (fromLink && localStorage.getItem(BACKUP)) $("restoreBtn").classList.remove("hidden");
+$("restoreBtn").onclick = () => {
+  let b = null;
+  try { b = JSON.parse(localStorage.getItem(BACKUP)); } catch (e) {}
+  $("restoreBtn").classList.add("hidden");
+  localStorage.removeItem(BACKUP);
+  if (!b || typeof b.code !== "string") return;
+  Object.assign(state, { cases: Array.isArray(b.cases) && b.cases.length ? b.cases : state.cases, method: b.method ?? null });
+  state.caseIdx = Math.min(Math.max(0, b.caseIdx | 0), state.cases.length - 1);
+  caseResults.clear();
+  renderCaseTabs();
+  editor.setValue(b.code); // triggers save + re-analysis
+  flashSaved("✓ Restored");
+};
 
 // ===================== Formatting (Ruff → WebAssembly, Black style) =====================
 const RUFF_URL = "https://cdn.jsdelivr.net/npm/@astral-sh/ruff-wasm-web@0.17.4/ruff_wasm.js";
@@ -1661,7 +1802,8 @@ renderInputs();
     $("rtPy").textContent = pyodide.runPython("import sys; sys.version.split()[0]");
     $("rtPyodide").textContent = pyodide.version;
     analyzeNow();
-    if (state.fmtOnRun) loadRuff().catch(() => {}); // preload so the first "Run" doesn't wait
+    if (fromLink && canRun()) runTrace(); // opened from a shared link / example: show it right away
+    else if (state.fmtOnRun) loadRuff().catch(() => {}); // preload so the first "Run" doesn't wait
   } catch (e) {
     setStatus("Could not load Pyodide: " + e.message, "error");
     setRuntime("error", "Failed to load");
@@ -1844,7 +1986,7 @@ function renderEvent(st) {
   let html;
   if (st.ev === "return") {
     setEventTone("ret");
-    html = `↩ <b>${esc(top.fn)}</b> retorna <b class="ok">${esc(show(st.ret))}</b>`;
+    html = `↩ <b>${esc(top.fn)}</b> returns <b class="ok">${esc(show(st.ret))}</b>`;
   } else if (st.ev === "exception") {
     setEventTone("exc");
     html = `⚠ <b class="bad">${esc(st.exc)}</b> on line ${st.line}`;

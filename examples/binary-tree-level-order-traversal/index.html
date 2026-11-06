@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level Order Traversal Visualization (Python BFS) | PyTrace</title>
+<meta name="description" content="Visualize breadth-first search on a binary tree: watch the queue and the tree level by level in an animated Python step-by-step trace (LeetCode 102).">
+<link rel="canonical" href="https://pytrace.app/examples/binary-tree-level-order-traversal/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PyTrace">
+<meta property="og:url" content="https://pytrace.app/examples/binary-tree-level-order-traversal/">
+<meta property="og:title" content="Level Order Traversal Visualization (Python BFS) | PyTrace">
+<meta property="og:description" content="Visualize breadth-first search on a binary tree: watch the queue and the tree level by level in an animated Python step-by-step trace (LeetCode 102).">
+<meta property="og:image" content="https://pytrace.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+  // same theme logic as the visualizer: saved choice, else the OS preference (before first paint)
+  (() => {
+    let t = null;
+    try { t = JSON.parse(localStorage.getItem("viz.state.v1") || "{}").theme; } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/idea.min.css">
+<link rel="stylesheet" href="/assets/site.css">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "TechArticle",
+   "headline": "Level Order Traversal Visualization (Python BFS)",
+   "description": "Visualize breadth-first search on a binary tree: watch the queue and the tree level by level in an animated Python step-by-step trace (LeetCode 102).",
+   "url": "https://pytrace.app/examples/binary-tree-level-order-traversal/",
+   "image": "https://pytrace.app/og.png",
+   "dateModified": "2026-11-06",
+   "author": {
+    "@type": "Person",
+    "name": "Aldo V",
+    "url": "https://github.com/arvazvi"
+   },
+   "publisher": {
+    "@type": "Organization",
+    "name": "PyTrace",
+    "url": "https://pytrace.app/"
+   },
+   "proficiencyLevel": "Beginner",
+   "programmingLanguage": "Python",
+   "about": "Binary tree BFS",
+   "isPartOf": {
+    "@id": "https://pytrace.app/#app"
+   }
+  },
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "PyTrace",
+     "item": "https://pytrace.app/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "Examples",
+     "item": "https://pytrace.app/examples/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 3,
+     "name": "Binary tree BFS",
+     "item": "https://pytrace.app/examples/binary-tree-level-order-traversal/"
+    }
+   ]
+  }
+ ]
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="logo"><a href="/">PyTrace</a><span class="tagline"> · Python algorithm visualizer</span></div>
+  <span class="ver">v1.0.0</span>
+  <nav>
+    <a class="navlink" href="/">Visualizer</a><a class="navlink" href="/examples/" aria-current="page">Examples</a><a class="navlink" href="/about/">About</a>
+    <a class="gh-link" href="https://github.com/arvazvi/pytrace" rel="noopener" title="Source code on GitHub" aria-label="PyTrace on GitHub"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+    <button id="themeBtn" class="icon" aria-label="Toggle light/dark mode"><svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </nav>
+</header>
+<main>
+<section class="card hero"><div class="card-head"><span class="label"><a href="/examples/">Examples</a> / Binary tree BFS</span><span class="spacer"></span><a class="run" href="/#s=eyJjb2RlIjoiY2xhc3MgU29sdXRpb246XG4gICAgZGVmIGxldmVsT3JkZXIoc2VsZiwgcm9vdDogT3B0aW9uYWxbVHJlZU5vZGVdKSAtPiBMaXN0W0xpc3RbaW50XV06XG4gICAgICAgIGlmIG5vdCByb290OlxuICAgICAgICAgICAgcmV0dXJuIFtdXG4gICAgICAgIHJlc3VsdCA9IFtdXG4gICAgICAgIHF1ZXVlID0gZGVxdWUoW3Jvb3RdKVxuICAgICAgICB3aGlsZSBxdWV1ZTpcbiAgICAgICAgICAgIGxldmVsID0gW11cbiAgICAgICAgICAgIGZvciBfIGluIHJhbmdlKGxlbihxdWV1ZSkpOlxuICAgICAgICAgICAgICAgIG5vZGUgPSBxdWV1ZS5wb3BsZWZ0KClcbiAgICAgICAgICAgICAgICBsZXZlbC5hcHBlbmQobm9kZS52YWwpXG4gICAgICAgICAgICAgICAgaWYgbm9kZS5sZWZ0OlxuICAgICAgICAgICAgICAgICAgICBxdWV1ZS5hcHBlbmQobm9kZS5sZWZ0KVxuICAgICAgICAgICAgICAgIGlmIG5vZGUucmlnaHQ6XG4gICAgICAgICAgICAgICAgICAgIHF1ZXVlLmFwcGVuZChub2RlLnJpZ2h0KVxuICAgICAgICAgICAgcmVzdWx0LmFwcGVuZChsZXZlbClcbiAgICAgICAgcmV0dXJuIHJlc3VsdFxuIiwibWV0aG9kIjoibGV2ZWxPcmRlciIsImNhc2VzIjpbeyJhcmdzIjp7InJvb3QiOiJbMyw5LDIwLG51bGwsbnVsbCwxNSw3XSJ9LCJleHBlY3RlZCI6eyJsZXZlbE9yZGVyIjoiW1szXSxbOSwyMF0sWzE1LDddXSJ9LCJvcHMiOiIiLCJvcGFyZ3MiOiIifV19"><span class="ico">▶</span>Run in PyTrace</a></div><div class="card-body"><h1>Level Order Traversal Visualization (Python BFS)</h1><p><strong>Level order traversal</strong> is breadth-first search (BFS) on a tree: visit the root, then all nodes at depth 1, then depth 2, and so on. A queue keeps the nodes waiting to be visited, and processing exactly <code>len(queue)</code> nodes per round separates the levels.</p>
+<p>PyTrace draws the binary tree from LeetCode notation (<code>[3,9,20,null,null,15,7]</code>), so you can follow which node is being dequeued while the <code>deque</code> and the <code>result</code> list fill up.</p><p class="cx"><span class="cx-k">Complexity</span>O(n) time, O(w) extra space where w is the maximum width of the tree.</p></div></section>
+<div class="cols-2"><section class="card "><div class="card-head"><h2>Code</h2><span class="spacer"></span><a class="meta" href="https://leetcode.com/problems/binary-tree-level-order-traversal/" rel="noopener nofollow">LeetCode 102: Binary Tree Level Order Traversal ↗</a></div><div class="code"><pre class="gutter" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</pre><pre class="src"><code>class Solution:
+    def levelOrder(self, root: Optional[TreeNode]) -&gt; List[List[int]]:
+        if not root:
+            return []
+        result = []
+        queue = deque([root])
+        while queue:
+            level = []
+            for _ in range(len(queue)):
+                node = queue.popleft()
+                level.append(node.val)
+                if node.left:
+                    queue.append(node.left)
+                if node.right:
+                    queue.append(node.right)
+            result.append(level)
+        return result</code></pre></div></section><div class="stack"><section class="card "><div class="card-head"><h2>Inputs</h2><span class="spacer"></span><span class="meta">LeetCode notation</span></div><div class="card-body"><div class="inputs"><div class="row"><span class="k">root</span><span class="v">[3,9,20,null,null,15,7]</span></div><div class="row"><span class="k">expected</span><span class="v">[[3],[9,20],[15,7]]</span></div></div></div></section><section class="card "><div class="card-head"><h2>What to watch</h2><span class="spacer"></span></div><div class="card-body"><ul><li>The binary tree, with the current <code>node</code> highlighted</li><li>The <code>queue</code> (<code>deque</code>) as an array: nodes join at the back and leave from the front</li><li><code>result</code> getting one new list per level</li></ul></div></section></div></div>
+<section class="card "><div class="card-head"><h2>More algorithm visualizations</h2><span class="spacer"></span></div><div class="card-body"><ul class="chips"><li><a href="/examples/two-pointers/">Two pointers</a></li><li><a href="/examples/sliding-window/">Sliding window</a></li><li><a href="/examples/binary-search/">Binary search</a></li><li><a href="/examples/reverse-linked-list/">Reverse a linked list</a></li><li><a href="/examples/number-of-islands/">Grid BFS (islands)</a></li><li><a href="/examples/backtracking-subsets/">Recursion &amp; backtracking</a></li><li><a href="/examples/dynamic-programming-coin-change/">Dynamic programming</a></li></ul></div></section>
+</main>
+<footer class="site-footer">
+  <a href="/examples/">Examples</a>
+  <a href="/about/">About</a>
+  <a href="https://github.com/arvazvi/pytrace" rel="noopener">GitHub</a>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/runmode/runmode-standalone.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="/assets/site.js"></script>
+</body>
+</html>

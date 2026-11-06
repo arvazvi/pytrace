@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://pytrace.app/</loc><lastmod>2026-11-06</lastmod><priority>1.0</priority></url>
+  <url><loc>https://pytrace.app/examples/two-pointers/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/sliding-window/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/binary-search/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/reverse-linked-list/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/binary-tree-level-order-traversal/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/number-of-islands/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/backtracking-subsets/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/dynamic-programming-coin-change/</loc><lastmod>2026-11-06</lastmod><priority>0.7</priority></url>
+  <url><loc>https://pytrace.app/examples/</loc><lastmod>2026-11-06</lastmod><priority>0.8</priority></url>
+  <url><loc>https://pytrace.app/about/</loc><lastmod>2026-11-06</lastmod><priority>0.8</priority></url>
+</urlset>
