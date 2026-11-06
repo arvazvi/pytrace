@@ -1,0 +1,9 @@
+# Python bytecode (from running tools/build_pages.py)
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+
+# local design-tool state
+.impeccable/
