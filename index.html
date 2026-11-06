@@ -1,0 +1,2335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PyTrace · Step through your Python code</title>
+<meta name="description" content="Run your Python solution step by step and visualize arrays, matrices, trees, graphs, the call stack and variables. Runs 100% in your browser.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/idea.min.css">
+<script>
+  // apply the theme before first paint (saved choice, else the OS preference)
+  (() => {
+    let t = null;
+    try { t = JSON.parse(localStorage.getItem("viz.state.v1") || "{}").theme; } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@14.1.0/dist/gridstack.min.css">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #8b93a7;
+    --accent: #7aa2ff;
+    --ok: #3ecf8e;
+    --bad: #ff6b6b;
+    --warn: #f5a524;
+    --on-accent: #0b1020;
+    --header-bg: rgba(15, 17, 21, .86);
+    --overlay-bg: rgba(15, 17, 21, .78);
+    --edge: #3a4150;
+    --edge-strong: #4a5263;
+    --shadow-sm: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 4px 14px rgba(0, 0, 0, .18);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, .45);
+    /* pointer / variable colors */
+    --p0: #f5a524; --p1: #22d3ee; --p2: #c084fc; --p3: #f472b6; --p4: #3ecf8e;
+    --p5: #fb7185; --p6: #a3e635; --p7: #60a5fa; --p8: #fbbf24;
+    --cell: 44px;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f4f7;
+    --panel: #ffffff;
+    --panel-2: #f2f4f8;
+    --border: #dde1e8;
+    --text: #1a1e27;
+    --muted: #646d82;
+    --accent: #3a66e8;
+    --ok: #0f9d58;
+    --bad: #dc3d43;
+    --warn: #c47a06;
+    --on-accent: #ffffff;
+    --header-bg: rgba(243, 244, 247, .86);
+    --overlay-bg: rgba(255, 255, 255, .82);
+    --edge: #c4cad5;
+    --edge-strong: #a7afbd;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 3px 10px rgba(16, 24, 40, .05);
+    --shadow-lg: 0 12px 32px rgba(16, 24, 40, .16);
+    --p0: #c47a06; --p1: #0891b2; --p2: #9333ea; --p3: #db2777; --p4: #059669;
+    --p5: #e11d48; --p6: #4d7c0f; --p7: #2563eb; --p8: #b45309;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  html, body { height: auto; min-height: 100%; }
+  header { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 48px;
+    position: sticky; top: 0; z-index: 20; background: var(--header-bg);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; white-space: nowrap; }
+  #saved { color: var(--muted); font-size: 12px; transition: opacity .4s; white-space: nowrap; }
+  #status { margin-left: auto; color: var(--muted); font-size: 13px; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #status.ready { color: var(--ok); }
+  #status.error { color: var(--bad); }
+  /* runtime LED + tooltip */
+  .runtime { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; cursor: help; outline: none; }
+  .runtime:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+  .led { width: 9px; height: 9px; border-radius: 50%; background: var(--warn);
+    box-shadow: 0 0 4px 1px color-mix(in srgb, var(--warn) 70%, transparent); animation: pulse 1.2s ease-in-out infinite; }
+  .runtime.ready .led { background: var(--ok); animation: led-glow 2.8s ease-in-out infinite;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 22%, transparent), 0 0 8px 2px color-mix(in srgb, var(--ok) 65%, transparent); }
+  .runtime.error .led { background: var(--bad); animation: none;
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--bad) 60%, transparent); }
+  @keyframes led-glow { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 14%, transparent), 0 0 13px 4px color-mix(in srgb, var(--ok) 45%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { .led, .runtime.ready .led { animation: none; } }
+  .runtime .rt-tip { position: absolute; right: -8px; top: 100%; padding-top: 8px; width: 310px;
+    opacity: 0; transform: translateY(-3px); pointer-events: none; transition: opacity .15s, transform .15s; z-index: 40; cursor: default; }
+  .runtime:hover .rt-tip, .runtime:focus-within .rt-tip { opacity: 1; transform: none; pointer-events: auto; }
+  .rt-box { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg); color: var(--text); font-size: 12.5px; line-height: 1.5; }
+  .rt-box .rt-title { display: flex; align-items: center; gap: 7px; font-weight: 600; margin-bottom: 6px; }
+  .rt-box .rt-state { margin-left: auto; font-weight: 500; font-size: 11.5px; color: var(--muted); }
+  .runtime.ready .rt-state { color: var(--ok); }
+  .runtime.error .rt-state { color: var(--bad); }
+  .rt-box dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 8px; font-size: 12px; }
+  .rt-box dt { color: var(--muted); }
+  .rt-box dd { margin: 0; font-family: var(--mono); }
+  .rt-box p { margin: 0 0 6px; color: var(--muted); }
+  .rt-box p b { color: var(--text); font-weight: 600; }
+  .rt-box a { color: var(--accent); text-decoration: none; }
+  .rt-box a:hover { text-decoration: underline; }
+  .layout-tools { display: flex; gap: 6px; align-items: center; flex: none; position: relative; }
+  .layout-tools .edit-only { display: none; }
+  body.editing .layout-tools .edit-only { display: inline-flex; }
+  button.icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 32px; padding: 0; }
+  .gh-link { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 32px;
+    color: var(--muted); border-radius: 8px; transition: color .15s; }
+  .gh-link:hover, .gh-link:focus-visible { color: var(--text); }
+  header .ver { color: var(--muted); font-size: 11px; font-family: var(--mono); opacity: .7; white-space: nowrap; }
+  :root[data-theme="dark"] #themeBtn .moon, :root[data-theme="light"] #themeBtn .sun { display: none; }
+  body.editing #layoutBtn { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+
+  /* hidden-cards menu */
+  .menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 210px; padding: 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow-lg); z-index: 30; }
+  .menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+  .menu label:hover { background: var(--panel-2); }
+  .menu input { accent-color: var(--accent); margin: 0; }
+
+  /* ---- card board ---- */
+  main { padding: 6px; }
+  .grid-stack { min-height: calc(100vh - 60px); }
+  .grid-stack-item-content.card { display: flex; flex-direction: column; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color .2s, box-shadow .2s; }
+  .card-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; min-height: 38px; flex: none;
+    border-bottom: 1px solid var(--border); }
+  .card-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-head .spacer { flex: 1; }
+  .card-head button { padding: 3px 9px; font-size: 12px; }
+  .card-head .kbd { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .card-head .toggle { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px;
+    cursor: pointer; white-space: nowrap; user-select: none; }
+  .card-head .toggle input { accent-color: var(--accent); margin: 0; }
+  .card-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
+  .card-body.flush { padding: 0; overflow: hidden; }
+  .card.ret { border-color: var(--ok); }
+  .card.exc { border-color: var(--bad); }
+
+  /* layout edit mode */
+  .card-overlay { display: none; }
+  body.editing .card-overlay { display: flex; position: absolute; inset: 0; z-index: 10; cursor: grab;
+    align-items: center; justify-content: center; flex-direction: column; gap: 6px; border-radius: 12px;
+    background: var(--overlay-bg); backdrop-filter: blur(1.5px); -webkit-backdrop-filter: blur(1.5px);
+    border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent); }
+  body.editing .card-overlay:active { cursor: grabbing; }
+  .card-overlay .t { font-weight: 600; font-size: 14px; }
+  .card-overlay .sz { font: 12px var(--mono); color: var(--muted); }
+  .card-overlay .x { position: absolute; top: 8px; right: 8px; padding: 2px 8px; font-size: 12px; }
+  .grid-stack-item-content.card { position: absolute; }
+  body.editing .grid-stack-item.ui-draggable-dragging .card { box-shadow: var(--shadow-lg); }
+  .grid-stack-placeholder > .placeholder-content { background: color-mix(in srgb, var(--accent) 8%, transparent) !important;
+    border: 1.5px dashed var(--accent); border-radius: 12px; }
+  .grid-stack-item > .ui-resizable-handle { z-index: 11 !important; }
+  body.editing .grid-stack-item.ui-resizable-autohide:not(.ui-resizable-disabled) > .ui-resizable-handle { display: block; }
+  body.editing .grid-stack-item > .ui-resizable-se,
+  body.editing .grid-stack-item > .ui-resizable-sw { width: 14px; height: 14px; background: none;
+    border: solid var(--accent); transform: none; }
+  body.editing .grid-stack-item > .ui-resizable-se { border-width: 0 2.5px 2.5px 0; border-radius: 0 0 10px 0;
+    right: calc(var(--gs-item-margin-right) + 3px); bottom: calc(var(--gs-item-margin-bottom) + 3px); }
+  body.editing .grid-stack-item > .ui-resizable-sw { border-width: 0 0 2.5px 2.5px; border-radius: 0 0 0 10px;
+    left: calc(var(--gs-item-margin-left) + 3px); bottom: calc(var(--gs-item-margin-bottom) + 3px); }
+
+  select, input[type=text], button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+
+  .CodeMirror { height: 100%; font-family: var(--mono); font-size: 14px; background: var(--panel) !important; }
+  .CodeMirror-gutters { background: var(--panel) !important; border-right: 1px solid var(--border) !important; }
+  .cm-cur { background: color-mix(in srgb, var(--accent) 22%, transparent) !important; }
+  .cm-prev { background: color-mix(in srgb, var(--accent) 8%, transparent) !important; }
+  .cur-gutter { width: 16px; }
+  .cur-gutter span { color: var(--accent); font-weight: 700; padding-left: 3px; }
+
+  .inputs { display: grid; gap: 7px; align-content: start; }
+  .tabs-head { padding: 0 8px; gap: 0; overflow: visible; }
+  .card-head button.info { position: relative; flex: none; width: 20px; height: 20px; padding: 0; border-radius: 50%;
+    font: italic 600 12px Georgia, serif; color: var(--muted); background: none; margin-left: 6px; cursor: help; }
+  .card-head button.info:hover, .card-head button.info:focus-visible { color: var(--text); border-color: var(--accent); }
+  .info .tip { position: absolute; right: -6px; top: calc(100% + 8px); width: max-content; max-width: 280px;
+    padding: 8px 10px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg); color: var(--text); text-align: left; white-space: normal;
+    font: 12.5px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    opacity: 0; transform: translateY(-3px); pointer-events: none; transition: opacity .15s, transform .15s; z-index: 40; }
+  .info:hover .tip, .info:focus-visible .tip { opacity: 1; transform: none; }
+  .tabs { display: flex; align-items: stretch; gap: 2px; overflow-x: auto; scrollbar-width: none; align-self: stretch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs .tab { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; flex: none;
+    background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    color: var(--muted); font-size: 12.5px; white-space: nowrap; transition: color .15s, border-color .15s; }
+  .tabs .tab:hover:not(:disabled) { color: var(--text); border-color: transparent; }
+  .tabs .tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tabs .tab.add { font-size: 16px; padding: 0 10px; }
+  .tabs .tab .close { opacity: 0; width: 16px; height: 16px; display: inline-flex; align-items: center;
+    justify-content: center; border-radius: 4px; margin-right: -4px; font-size: 14px; color: var(--muted); }
+  .tabs .tab:hover .close, .tabs .tab.active .close { opacity: 1; }
+  .tabs .tab .close:hover { background: var(--panel-2); color: var(--text); }
+  .rdot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
+  .rdot.ok { background: var(--ok); }
+  .rdot.bad, .rdot.err { background: var(--bad); }
+  .rdot.ran { background: var(--accent); }
+  .inputs .row { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; }
+  .inputs label { font-family: var(--mono); color: var(--muted); text-align: right; font-size: 13px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inputs input, .inputs select { font-family: var(--mono); width: 100%; }
+  .inputs .hint { color: var(--muted); font-size: 12px; }
+  .inputs .hint.err { color: var(--bad); }
+  .card-head button.run { display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 5px;
+    border-radius: 999px; background: var(--accent); border-color: var(--accent); color: var(--on-accent);
+    font-weight: 600; font-size: 12.5px; transition: filter .15s, transform .1s; }
+  .card-head button.run .ico { display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%; background: color-mix(in srgb, var(--on-accent) 18%, transparent); font-size: 9px; padding-left: 1px; }
+  .card-head button.run:hover:not(:disabled) { filter: brightness(1.1); }
+  .card-head button.run:active:not(:disabled) { transform: scale(.96); }
+  .card-head button.run.busy .ico { animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  .controls { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 12px; }
+  .controls button { min-width: 38px; }
+  .controls input[type=range] { flex: 1; min-width: 60px; accent-color: var(--accent); }
+  #stepLabel { font-family: var(--mono); color: var(--muted); min-width: 92px; text-align: right; }
+
+  .empty { color: var(--muted); }
+  .hidden { display: none !important; }
+  #hiddenCards { display: none; }
+
+  #event { font-family: var(--mono); display: flex; flex-direction: column; justify-content: center; }
+  #event .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  /* ---- data structures ---- */
+  .struct { margin-bottom: 20px; }
+  .struct:last-child { margin-bottom: 0; }
+  .sname { font-family: var(--mono); margin-bottom: 4px; }
+  .sname .type { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .scroll { overflow-x: auto; padding-bottom: 4px; }
+
+  /* arrays */
+  .inner { position: relative; margin-left: var(--cell); width: max-content; padding-right: var(--cell); }
+  .idxs, .cells { display: flex; }
+  .idxs div { width: var(--cell); text-align: center; color: var(--muted); font: 11px var(--mono); }
+  .cell { width: var(--cell); height: var(--cell); display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); margin-right: -1px; background: var(--panel-2);
+    font: 16px var(--mono); transition: background .2s, border-color .2s; position: relative;
+    overflow: hidden; white-space: nowrap; }
+  .cell.small { font-size: 12px; }
+  .cell.ghost { border-style: dashed; background: transparent; color: var(--muted); font-size: 11px; }
+  .read { background: color-mix(in srgb, var(--warn) 22%, transparent) !important; border-color: var(--warn) !important; z-index: 1; }
+  .match { background: color-mix(in srgb, var(--ok) 25%, transparent) !important; border-color: var(--ok) !important; z-index: 1; }
+  .nomatch { background: color-mix(in srgb, var(--bad) 20%, transparent) !important; border-color: var(--bad) !important; z-index: 1; }
+  .err { background: color-mix(in srgb, var(--bad) 35%, transparent) !important; border-color: var(--bad) !important; z-index: 1; }
+  .changed { animation: flash .7s ease-out; }
+  @keyframes flash { from { background: color-mix(in srgb, var(--accent) 55%, transparent); } }
+  .ptrs { position: relative; }
+  .ptr { position: absolute; left: 0; top: 0; width: var(--cell); text-align: center;
+    font: 600 12px var(--mono); white-space: nowrap; will-change: transform; }
+  .ptr .tip { display: block; font-size: 14px; line-height: 14px; }
+  .ptr.out, .gptr.out { color: var(--bad) !important; }
+
+  /* matrices */
+  .gcanvas { position: relative; }
+  .gcell { position: absolute; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); background: var(--panel-2); font: 13px var(--mono);
+    overflow: hidden; white-space: nowrap; transition: background .2s, border-color .2s; }
+  .gcell.rowread { background: color-mix(in srgb, var(--warn) 8%, transparent); }
+  .gidx { position: absolute; color: var(--muted); font: 11px var(--mono); text-align: center; width: 38px; }
+  .gptr { position: absolute; left: 0; top: 0; font: 600 12px var(--mono); white-space: nowrap; will-change: transform; }
+
+  /* dict / set */
+  table.dict { border-collapse: collapse; font-family: var(--mono); }
+  table.dict td { padding: 3px 10px; border: 1px solid var(--border); background: var(--panel-2); }
+  table.dict td.k { color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-family: var(--mono); padding: 3px 9px; border: 1px solid var(--border);
+    border-radius: 999px; background: var(--panel-2); }
+
+  /* nodes: lists, trees, graphs */
+  .ncanvas { position: relative; }
+  .lnode { position: absolute; width: 46px; height: 38px; border: 1.5px solid var(--border); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; background: var(--panel-2); font: 14px var(--mono);
+    overflow: hidden; white-space: nowrap; }
+  .lnode.inq { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .larrow { position: absolute; width: 34px; height: 38px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font: 16px var(--mono); }
+  .lend { position: absolute; height: 38px; display: flex; align-items: center; color: var(--muted);
+    font: 13px var(--mono); white-space: nowrap; }
+  .lend.cyc { color: var(--warn); }
+  svg.tree { position: absolute; left: 0; overflow: visible; }
+  svg.tree line { stroke: var(--edge); stroke-width: 1.5; }
+  svg.tree .elab { fill: var(--muted); font: 11px var(--mono); text-anchor: middle; }
+  svg.tree circle { fill: var(--panel-2); stroke: var(--edge-strong); stroke-width: 1.5; }
+  svg.tree .inq circle { fill: color-mix(in srgb, var(--warn) 18%, transparent); }
+  svg.tree .endring { fill: none; stroke: var(--ok); stroke-width: 1.5; }
+  svg.tree text.v { fill: var(--text); font: 13px var(--mono); text-anchor: middle; dominant-baseline: central; }
+  .tag { position: absolute; left: 0; top: 0; text-align: center; font: 600 12px var(--mono);
+    white-space: nowrap; will-change: transform; pointer-events: none; }
+
+  /* comparisons */
+  .cmp { font-family: var(--mono); padding: 6px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cmp + .cmp { border-top: 1px dashed var(--border); }
+  .cmp .src { color: var(--muted); min-width: 140px; }
+  .cmp .vals { font-size: 15px; }
+  .chip { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .chip.t { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+  .chip.f { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+  .chip.e { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+
+  /* call stack */
+  .frame { font-family: var(--mono); padding: 4px 8px; border-left: 3px solid var(--border); margin: 3px 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .frame.top { border-left-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .frame .ln { float: right; font-size: 12px; color: var(--muted); }
+
+  /* variables */
+  table.vars { border-collapse: collapse; font-family: var(--mono); width: 100%; }
+  table.vars td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.vars tr:last-child td { border-bottom: 0; }
+  table.vars td.k { width: 1%; white-space: nowrap; }
+  table.vars td.t { color: var(--muted); font-size: 12px; width: 1%; white-space: nowrap; }
+  table.vars td.v { word-break: break-all; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  tr.changed td.v { animation: flash .7s ease-out; }
+
+  pre#out { margin: 0; font-family: var(--mono); white-space: pre-wrap; word-break: break-all; }
+  .ok { color: var(--ok); }
+  .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>PyTrace</h1>
+  <span class="ver" title="PyTrace version">v1.0.0</span>
+  <span id="saved"></span>
+  <span id="status">Loading Python (Pyodide)…</span>
+  <div class="runtime" id="runtime" tabindex="0" aria-label="Python runtime status" aria-describedby="rtTip">
+    <span class="led"></span>
+    <div class="rt-tip" role="tooltip" id="rtTip"><div class="rt-box">
+      <div class="rt-title">Python runtime <span class="rt-state" id="rtState">Loading…</span></div>
+      <dl>
+        <dt>Python</dt><dd id="rtPy">—</dd>
+        <dt>Pyodide</dt><dd id="rtPyodide">0.26.4</dd>
+        <dt>Engine</dt><dd>WebAssembly</dd>
+      </dl>
+      <p>CPython compiled to <b>WebAssembly</b> via Pyodide, running inside this browser tab. No server is involved.</p>
+      <p>Your code runs on <b>your own CPU</b> and never leaves your device. The runtime (~10 MB) is downloaded once and then cached by the browser.</p>
+      <p>Most of the standard library is available; threads, subprocesses and raw sockets are not.</p>
+      <a href="https://pyodide.org" target="_blank" rel="noopener">Learn more about Pyodide ↗</a>
+    </div></div>
+  </div>
+  <div class="layout-tools">
+    <button class="edit-only" id="cardsBtn" title="Show or hide cards">Cards ▾</button>
+    <button class="edit-only" id="resetLayoutBtn" title="Restore the default layout">Reset</button>
+    <button id="layoutBtn" title="Move and resize cards">⊞ Edit layout</button>
+    <a class="gh-link" href="https://github.com/arvazvi/pytrace" target="_blank" rel="noopener" title="Source code on GitHub" aria-label="PyTrace on GitHub">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <button id="themeBtn" class="icon" aria-label="Toggle light/dark mode">
+      <svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <div class="menu hidden" id="cardsMenu"></div>
+  </div>
+</header>
+
+<main>
+  <div class="grid-stack" id="board">
+    <div class="grid-stack-item" gs-id="editor"><div class="grid-stack-item-content card">
+      <div class="card-head"><button id="runBtn" class="run" title="Run and visualize (⌘/Ctrl + Enter)" disabled><span class="ico">▶</span>Run</button><span class="spacer"></span>
+        <label class="toggle" title="Format the code automatically before running"><input type="checkbox" id="fmtOnRun"> on run</label>
+        <button id="formatBtn" title="Format with Ruff (⇧⌥F)">✨ Format</button>
+      </div>
+      <div class="card-body flush"><textarea id="code"></textarea></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="inputs"><div class="grid-stack-item-content card">
+      <div class="card-head tabs-head"><div class="tabs" id="caseTabs" role="tablist"></div><span class="spacer"></span>
+        <button class="info hidden" id="inputsInfo" aria-describedby="inputsTip">i<span class="tip" role="tooltip" id="inputsTip"></span></button></div>
+      <div class="card-body"><div class="inputs" id="inputs"></div></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="player"><div class="grid-stack-item-content card">
+      <div class="controls">
+        <button id="firstBtn" title="First step">⏮</button>
+        <button id="prevBtn" title="Previous (←)">◀</button>
+        <button id="playBtn" title="Play (space)">▶</button>
+        <button id="nextBtn" title="Next (→)">▶|</button>
+        <button id="lastBtn" title="Last step">⏭</button>
+        <input type="range" id="slider" min="0" max="0" value="0">
+        <span id="stepLabel">–</span>
+        <select id="speed" title="Speed">
+          <option value="1400">0.5×</option>
+          <option value="800">1×</option>
+          <option value="400">2×</option>
+          <option value="180">4×</option>
+          <option value="60">10×</option>
+        </select>
+      </div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="event"><div class="grid-stack-item-content card" id="eventCard">
+      <div class="card-body" id="event"><span class="empty">Write your solution, fill in the inputs and press <b>Run</b> (⌘/Ctrl + Enter).</span></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="structs"><div class="grid-stack-item-content card">
+      <div class="card-head"><h2>Data structures</h2></div>
+      <div class="card-body" id="structs"><span class="empty">—</span></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="cmps"><div class="grid-stack-item-content card">
+      <div class="card-head"><h2>Comparisons on this line</h2></div>
+      <div class="card-body" id="cmps"><span class="empty">—</span></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="stack"><div class="grid-stack-item-content card">
+      <div class="card-head"><h2>Call stack</h2></div>
+      <div class="card-body" id="stack"><span class="empty">—</span></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="vars"><div class="grid-stack-item-content card">
+      <div class="card-head"><h2>Variables</h2></div>
+      <div class="card-body" id="vars"><span class="empty">—</span></div>
+    </div></div>
+
+    <div class="grid-stack-item" gs-id="out"><div class="grid-stack-item-content card">
+      <div class="card-head"><h2>Output</h2></div>
+      <div class="card-body"><pre id="out"><span class="empty">—</span></pre></div>
+    </div></div>
+  </div>
+  <div id="hiddenCards"></div>
+</main>
+
+<!-- ===================== Tracer (runs inside Pyodide) ===================== -->
+<script type="text/x-python" id="tracer-src">
+import ast, sys, io, json, contextlib, types, traceback
+from collections import deque
+
+FN = "<user>"
+LIMIT = 5000
+MAX_NODES = 150
+STRUCT = ("next", "left", "right", "children", "neighbors")
+VALKEYS = ("val", "value", "key", "data")
+
+PRELUDE = '''
+from typing import *
+import collections, heapq, math, bisect, itertools, functools, string, re, random, operator
+from collections import deque, defaultdict, Counter, OrderedDict
+from heapq import heappush, heappop, heapify, heappushpop, heapreplace, nlargest, nsmallest
+from bisect import bisect_left, bisect_right, insort
+from functools import lru_cache, cache, reduce, cmp_to_key
+from itertools import accumulate, permutations, combinations, product, chain, groupby, zip_longest
+from math import inf, gcd, sqrt, ceil, floor, log2, comb, factorial
+
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+    def __repr__(self):
+        return f"ListNode({self.val})"
+
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+    def __repr__(self):
+        return f"TreeNode({self.val})"
+'''
+
+OPS = {ast.Eq: "==", ast.NotEq: "!=", ast.Lt: "<", ast.LtE: "<=", ast.Gt: ">", ast.GtE: ">=",
+       ast.In: "in", ast.NotIn: "not in", ast.Is: "is", ast.IsNot: "is not"}
+PURE = (ast.Compare, ast.Name, ast.Load, ast.Subscript, ast.Constant, ast.BinOp, ast.UnaryOp,
+        ast.operator, ast.unaryop, ast.cmpop, ast.Call, ast.Attribute)
+ARITH = (ast.Name, ast.Load, ast.Constant, ast.BinOp, ast.UnaryOp, ast.operator, ast.unaryop, ast.Call)
+
+
+# ============================ Static analysis ============================
+
+def _is_len(n):
+    return (isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "len"
+            and len(n.args) == 1 and not n.keywords)
+
+
+def _only(node, allowed):
+    for n in ast.walk(node):
+        if not isinstance(n, allowed):
+            return False
+        if isinstance(n, ast.Call) and not _is_len(n):
+            return False
+    return True
+
+
+def _seqname(n):
+    if isinstance(n, ast.Name):
+        return n.id
+    if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "self":
+        return "self." + n.attr
+    return None
+
+
+def _names(node):
+    """Variables used in an expression (excluding len(...) and self)."""
+    skip = set()
+    for n in ast.walk(node):
+        if _is_len(n):
+            skip.add(id(n.func))
+            for a in ast.walk(n.args[0]):
+                skip.add(id(a))
+        elif isinstance(n, ast.Attribute):
+            for a in ast.walk(n.value):
+                skip.add(id(a))
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and id(n) not in skip and n.id != "self"}
+
+
+def _len_targets(node):
+    out = set()
+    for n in ast.walk(node):
+        if _is_len(n):
+            a = n.args[0]
+            s = _seqname(a)
+            if s:
+                out.add(s)
+            elif isinstance(a, ast.Subscript) and _seqname(a.value) and not isinstance(a.slice, ast.Slice):
+                out.add(_seqname(a.value) + "#col")
+    return out
+
+
+def _simple_slice(n):
+    return not isinstance(n.slice, (ast.Slice, ast.Tuple))
+
+
+def analyze(code):
+    tree = ast.parse(code)
+    seg = lambda n: ast.get_source_segment(code, n)
+    pointers, compares, reads = {}, {}, {}
+    assigns, links = [], []
+    kinds = {}   # var -> {"len", "other"}: to discard variables that only hold a length
+
+    def add(idx, seq):
+        if idx == seq or seq.split("#")[0] == idx:
+            return False
+        lst = pointers.setdefault(idx, [])
+        if seq in lst:
+            return False
+        lst.append(seq)
+        return True
+
+    def kind(var, k):
+        kinds.setdefault(var, set()).add(k)
+
+    def first(s):
+        return next(iter(s))
+
+    # type annotations (List[int], Optional[TreeNode]) are not accesses
+    in_ann = set()
+    for node in ast.walk(tree):
+        anns = []
+        if isinstance(node, ast.arg) and node.annotation:
+            anns.append(node.annotation)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.returns:
+            anns.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            anns.append(node.annotation)
+        for a in anns:
+            in_ann.update(id(n) for n in ast.walk(a))
+
+    inner2d = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Subscript) \
+                and _seqname(node.value.value) and _simple_slice(node) and _simple_slice(node.value):
+            inner2d.add(id(node.value))
+
+    def add_read(line, item):
+        reads.setdefault(line, []).append(item)
+
+    for node in ast.walk(tree):
+        if id(node) in in_ann:
+            continue
+
+        if isinstance(node, ast.Subscript) and _simple_slice(node):
+            if isinstance(node.value, ast.Subscript) and id(node.value) in inner2d:
+                seq = _seqname(node.value.value)
+                s1, s2 = node.value.slice, node.slice
+                n1, n2 = _names(s1), _names(s2)
+                if len(n1) == 1:
+                    add(first(n1), seq)
+                if len(n2) == 1:
+                    add(first(n2), seq + "#col")
+                if _only(s1, PURE) and _only(s2, PURE):
+                    add_read(node.lineno, {"seq": seq, "src2": [seg(s1), seg(s2)]})
+            elif id(node) not in inner2d:
+                seq = _seqname(node.value)
+                if seq:
+                    names = _names(node.slice)
+                    if len(names) == 1:
+                        add(first(names), seq)
+                    if _only(node.slice, PURE):
+                        add_read(node.lineno, {"seq": seq, "src": seg(node.slice)})
+
+        elif isinstance(node, ast.Compare):
+            sides = [node.left] + list(node.comparators)
+            for a in sides:
+                for b in sides:
+                    if isinstance(a, ast.Name):
+                        for s in (_len_targets(b) if _is_len(b) else ()):
+                            add(a.id, s)
+            for op, left, right in zip(node.ops, sides, sides[1:]):
+                if isinstance(op, (ast.In, ast.NotIn)) and _seqname(right) and _only(left, PURE):
+                    add_read(node.lineno, {"seq": _seqname(right), "src": seg(left), "key": True})
+            names_only = [s.id for s in sides if isinstance(s, ast.Name)]
+            if len(names_only) == len(sides):
+                for k in range(len(names_only) - 1):
+                    links.append((names_only[k], names_only[k + 1]))
+            if _only(node, PURE):
+                compares.setdefault(node.lineno, []).append({
+                    "src": seg(node),
+                    "sides": [seg(s) for s in sides],
+                    "ops": [OPS.get(type(o), "?") for o in node.ops],
+                })
+
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                and node.func.attr == "get" and _seqname(node.func.value) and node.args \
+                and _only(node.args[0], PURE):
+            add_read(node.lineno, {"seq": _seqname(node.func.value), "src": seg(node.args[0]), "key": True})
+
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            value = node.value
+            if value is None:
+                continue
+            for t in targets:
+                pairs = []
+                if isinstance(t, ast.Name):
+                    pairs.append((t.id, value))
+                elif isinstance(t, ast.Tuple):
+                    if isinstance(value, ast.Tuple) and len(t.elts) == len(value.elts):
+                        pairs += [(te.id, ve) for te, ve in zip(t.elts, value.elts) if isinstance(te, ast.Name)]
+                    else:
+                        for te in t.elts:
+                            if isinstance(te, ast.Name):
+                                kind(te.id, "other")
+                for name, val in pairs:
+                    assigns.append((name, val))
+                    kind(name, "len" if _is_len(val) else "other")
+
+        elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
+            assigns.append((node.target.id, node.value))
+            kind(node.target.id, "other")
+
+        elif isinstance(node, ast.For) and isinstance(node.iter, ast.Call) and isinstance(node.iter.func, ast.Name):
+            fname = node.iter.func.id
+            if fname == "range" and isinstance(node.target, ast.Name):
+                kind(node.target.id, "other")
+                for a in node.iter.args:
+                    assigns.append((node.target.id, a))
+            elif fname == "enumerate" and isinstance(node.target, ast.Tuple) and node.iter.args \
+                    and isinstance(node.target.elts[0], ast.Name) and _seqname(node.iter.args[0]):
+                kind(node.target.elts[0].id, "other")
+                add(node.target.elts[0].id, _seqname(node.iter.args[0]))
+
+    # i = len(s) - 1, for i in range(len(s)) -> i is a pointer into s
+    for tgt, val in assigns:
+        if _only(val, ARITH):
+            for s in _len_targets(val):
+                add(tgt, s)
+
+    # propagate: lo = mid + 1, lo <= hi, for j in range(n) ...
+    for _ in range(8):
+        changed = False
+        for tgt, val in assigns:
+            if not _only(val, ARITH):
+                continue
+            for n in _names(val):
+                for s in list(pointers.get(n, [])):
+                    changed |= add(tgt, s)
+        for a, b in links:
+            for s in list(pointers.get(a, [])):
+                changed |= add(b, s)
+            for s in list(pointers.get(b, [])):
+                changed |= add(a, s)
+        if not changed:
+            break
+
+    # n = len(nums) is a length, not a pointer
+    for var, ks in kinds.items():
+        if ks == {"len"}:
+            pointers.pop(var, None)
+
+    # ---- how to call the code ----
+    def params(fn, skip_self):
+        args = fn.args.args[1:] if skip_self else fn.args.args
+        return [{"name": a.arg, "ann": ast.unparse(a.annotation) if a.annotation else ""} for a in args]
+
+    classes = [n for n in tree.body if isinstance(n, ast.ClassDef)]
+    funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and not n.name.startswith("_")]
+    script = any(
+        not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Import, ast.ImportFrom))
+        and not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+        for n in tree.body)
+    sol = next((c for c in classes if c.name == "Solution"), None)
+    methods, mode = [], "script"
+    if not script:
+        if sol:
+            methods = [{"name": f.name, "params": params(f, True)} for f in sol.body
+                       if isinstance(f, ast.FunctionDef) and not f.name.startswith("_")]
+            mode = "solution" if methods else "script"
+        elif funcs:
+            methods = [{"name": f.name, "params": params(f, False)} for f in funcs]
+            mode = "function"
+        elif [c for c in classes if c.name not in ("ListNode", "TreeNode")]:
+            mode = "design"
+
+    return {"pointers": pointers, "compares": compares, "reads": reads, "mode": mode,
+            "methods": methods, "classes": [c.name for c in classes]}
+
+
+def analyze_json(code):
+    try:
+        return json.dumps({"ok": True, **analyze(code)})
+    except SyntaxError as e:
+        return json.dumps({"ok": False, "error": f"SyntaxError (line {e.lineno}): {e.msg}", "line": e.lineno})
+
+
+# ============================ Value encoding ============================
+
+def _is_node(v):
+    if isinstance(v, (type, types.ModuleType)):
+        return False
+    d = getattr(v, "__dict__", None)
+    return type(d) is dict and any(k in d for k in STRUCT)
+
+
+def _short(v, n=120):
+    try:
+        r = repr(v)
+    except Exception:
+        r = "<?>"
+    return r if len(r) <= n else r[:n - 1] + "…"
+
+
+def _disp(x):
+    s = x if isinstance(x, str) else _short(x, 14)
+    return s if len(s) <= 14 else s[:13] + "…"
+
+
+def _nodeval(n):
+    d = n.__dict__
+    if "key" in d and ("val" in d or "value" in d):
+        return f"{_disp(d['key'])}:{_disp(d.get('val', d.get('value')))}"
+    for k in VALKEYS:
+        if k in d:
+            return _disp(d[k])
+    return ""
+
+
+def _enc(v, depth, refs):
+    if v is None:
+        return {"t": "none", "v": "None"}
+    if isinstance(v, bool):
+        return {"t": "bool", "v": repr(v)}
+    if isinstance(v, int):
+        return {"t": "int", "v": v if abs(v) < 2 ** 53 else repr(v)}
+    if isinstance(v, float):
+        return {"t": "float", "v": repr(v)}
+    if isinstance(v, str):
+        return {"t": "str", "v": v[:500]}
+    tname = type(v).__name__
+    if _is_node(v):
+        refs.append(v)
+        return {"t": "ref", "id": str(id(v)), "v": f"{tname}({_nodeval(v)})", "val": _nodeval(v)}
+    if isinstance(v, (list, tuple, deque)):
+        lim = 200 if depth == 0 else 60
+        if depth >= 2 or len(v) > lim:
+            return {"t": tname, "v": _short(v), "n": len(v)}
+        return {"t": tname, "v": [_enc(x, depth + 1, refs) for x in v]}
+    if isinstance(v, dict):
+        if depth >= 2 or len(v) > 100:
+            return {"t": tname, "v": _short(v), "n": len(v)}
+        return {"t": tname, "d": 1, "v": [[_short(k, 40), _enc(x, depth + 1, refs)] for k, x in v.items()]}
+    if isinstance(v, (set, frozenset)):
+        if depth >= 2 or len(v) > 100:
+            return {"t": tname, "v": _short(v), "n": len(v)}
+        try:
+            items = sorted(v)
+        except Exception:
+            items = list(v)
+        return {"t": tname, "s": 1, "v": [_short(x, 40) for x in items]}
+    return {"t": tname, "v": _short(v)}
+
+
+def _shallow(v, refs):
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return _enc(v, 0, refs)
+    if _is_node(v):
+        return _enc(v, 0, refs)
+    return {"t": type(v).__name__, "v": _short(v, 60)}
+
+
+def _skip_var(k, v):
+    return (k.startswith("__") or isinstance(v, (type, types.ModuleType))
+            or (callable(v) and not _is_node(v)))
+
+
+def _frame_vars(frame, full, refs):
+    out = {}
+    for k, v in frame.f_locals.items():
+        if k == "self" and not _is_node(v):
+            d = getattr(v, "__dict__", None)
+            if isinstance(d, dict):
+                for a, av in d.items():
+                    if _skip_var(a, av):
+                        continue
+                    if full:
+                        out["self." + a] = _enc(av, 0, refs)
+                    elif _is_node(av):
+                        out["self." + a] = _shallow(av, refs)
+            continue
+        if _skip_var(k, v):
+            continue
+        out[k] = _enc(v, 0, refs) if full else _shallow(v, refs)
+    return out
+
+
+def _heap(refs):
+    heap, q = {}, deque(refs)
+    while q and len(heap) < MAX_NODES:
+        n = q.popleft()
+        k = str(id(n))
+        if k in heap:
+            continue
+        d = n.__dict__
+
+        def ref(x):
+            if _is_node(x):
+                q.append(x)
+                return str(id(x))
+            return None
+
+        e = {"cls": type(n).__name__, "val": _nodeval(n)}
+        if "left" in d or "right" in d:
+            e["k"] = "bin"
+            e["l"] = ref(d.get("left"))
+            e["r"] = ref(d.get("right"))
+        elif "children" in d:
+            e["k"] = "nary"
+            ch = d["children"]
+            out = []
+            if isinstance(ch, dict):
+                for key, x in ch.items():
+                    r = ref(x)
+                    if r:
+                        out.append([key if isinstance(key, str) else _short(key, 6), r])
+            elif isinstance(ch, (list, tuple)):
+                letters = len(ch) == 26
+                for i, x in enumerate(ch):
+                    r = ref(x)
+                    if r:
+                        out.append([chr(97 + i) if letters else "", r])
+            e["ch"] = out
+        elif "neighbors" in d:
+            e["k"] = "graph"
+            e["nb"] = [r for r in (ref(x) for x in (d["neighbors"] or [])) if r]
+        else:
+            e["k"] = "list"
+            e["n"] = ref(d.get("next"))
+        extra = []
+        for kk, vv in d.items():
+            if kk in STRUCT or kk in VALKEYS or kk in ("prev", "random"):
+                continue
+            if isinstance(vv, bool):
+                if vv:
+                    e["end"] = True
+                extra.append(f"{kk}={vv}")
+            elif vv is None or isinstance(vv, (int, float, str)):
+                extra.append(f"{kk}={_short(vv, 20)}")
+        if extra:
+            e["x"] = ", ".join(extra)[:120]
+        heap[k] = e
+    return heap
+
+
+# ============================ LeetCode-style inputs / outputs ============================
+
+def _build_tree(vals, cls):
+    if not vals or vals[0] is None:
+        return None
+    it = iter(vals)
+    root = cls(next(it))
+    q = deque([root])
+    while q:
+        node = q.popleft()
+        for side in ("left", "right"):
+            try:
+                x = next(it)
+            except StopIteration:
+                return root
+            if x is not None:
+                child = cls(x)
+                setattr(node, side, child)
+                q.append(child)
+    return root
+
+
+def _build_list(vals, cls):
+    head = None
+    for x in reversed(vals):
+        n = cls(x)
+        n.next = head
+        head = n
+    return head
+
+
+def _convert(val, ann, g):
+    a = ann.replace(" ", "")
+    for name, build in (("TreeNode", _build_tree), ("ListNode", _build_list)):
+        if name in a and isinstance(val, list):
+            cls = g[name]
+            if a.startswith("List[") and any(isinstance(x, list) for x in val):
+                return [build(x, cls) if isinstance(x, list) else None for x in val]
+            return build(val, cls)
+    return val
+
+
+def _plain(v, depth=0):
+    if depth > 60:
+        return _short(v)
+    if _is_node(v):
+        d = v.__dict__
+        if "left" in d or "right" in d:
+            out, q = [], deque([v])
+            while q and len(out) < 2000:
+                n = q.popleft()
+                if n is None:
+                    out.append(None)
+                    continue
+                out.append(n.val)
+                q.append(n.left)
+                q.append(n.right)
+            while out and out[-1] is None:
+                out.pop()
+            return out
+        if "next" in d:
+            out, seen, n = [], set(), v
+            while n is not None and id(n) not in seen and len(out) < 2000:
+                seen.add(id(n))
+                out.append(getattr(n, "val", None))
+                n = n.next
+            return out
+        return _short(v)
+    if isinstance(v, (list, tuple)):
+        return [_plain(x, depth + 1) for x in v]
+    if isinstance(v, (set, frozenset)):
+        try:
+            return sorted(v)
+        except Exception:
+            return list(v)
+    return v
+
+
+def _fmt(v):
+    try:
+        return json.dumps(v, ensure_ascii=False)
+    except Exception:
+        return _short(v, 2000)
+
+
+def _eq(a, b):
+    if isinstance(a, float) or isinstance(b, float):
+        try:
+            return abs(a - b) <= 1e-5 * max(1.0, abs(b))
+        except Exception:
+            return False
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        return len(a) == len(b) and all(_eq(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+def _eval_in(src, g, what):
+    src = (src or "").strip()
+    if not src:
+        raise ValueError(f"Missing value for '{what}'")
+    try:
+        return eval(src, g, {"null": None, "true": True, "false": False})
+    except Exception as e:
+        raise ValueError(f"Invalid input for '{what}': {e}")
+
+
+class StepLimit(Exception):
+    pass
+
+
+class InputError(Exception):
+    pass
+
+
+# ============================ Traced execution ============================
+
+def run(code, cfg_json):
+    cfg = json.loads(cfg_json)
+    try:
+        an = analyze(code)
+    except SyntaxError as e:
+        return json.dumps({"steps": [], "pointers": {}, "error": f"SyntaxError (line {e.lineno}): {e.msg}"})
+
+    cmps = {ln: [(c, compile(c["src"], "<e>", "eval"), [compile(s, "<e>", "eval") for s in c["sides"]])
+                 for c in lst] for ln, lst in an["compares"].items()}
+    rds = {}
+    for ln, lst in an["reads"].items():
+        out = []
+        for r in lst:
+            if "src2" in r:
+                out.append((r["seq"], [compile(s, "<e>", "eval") for s in r["src2"]], False))
+            else:
+                out.append((r["seq"], compile(r["src"], "<e>", "eval"), r.get("key", False)))
+        rds[ln] = out
+
+    steps = []
+    buf = io.StringIO()
+
+    def ev(cc, frame):
+        return eval(cc, frame.f_globals, dict(frame.f_locals))
+
+    def isint(x):
+        return isinstance(x, int) and not isinstance(x, bool)
+
+    def tracer(frame, event, arg):
+        if frame.f_code.co_filename != FN:
+            return None
+        if event not in ("line", "return", "exception"):
+            return tracer
+        if len(steps) >= LIMIT:
+            raise StepLimit()
+
+        frames, f = [], frame
+        while f is not None:
+            if f.f_code.co_filename == FN:
+                frames.append(f)
+            f = f.f_back
+        frames.reverse()
+        if len(frames) > 40:
+            shown = frames[:5] + [None] + frames[-35:]
+        else:
+            shown = frames
+
+        refs = []
+        loc = _frame_vars(frame, True, refs)
+        stack = []
+        for fr in shown:
+            if fr is None:
+                stack.append({"fn": "…", "skip": len(frames) - 40})
+                continue
+            co = fr.f_code
+            args = [a for a in co.co_varnames[:co.co_argcount] if a != "self"]
+            item = {"fn": co.co_name, "line": fr.f_lineno, "args": args}
+            if fr is not frame:
+                item["vars"] = _frame_vars(fr, False, refs)
+            stack.append(item)
+
+        st = {"ev": event, "line": frame.f_lineno, "stack": stack, "locals": loc, "out": buf.getvalue()}
+
+        if event == "line":
+            st["cmps"] = []
+            for c, full, sides in cmps.get(frame.f_lineno, []):
+                item = {"src": c["src"], "ops": c["ops"]}
+                try:
+                    item["vals"] = [_short(ev(s, frame), 40) for s in sides]
+                    item["res"] = bool(ev(full, frame))
+                except Exception as e:
+                    item["err"] = f"{type(e).__name__}: {e}"
+                st["cmps"].append(item)
+            st["reads"] = []
+            for seq, cc, is_key in rds.get(frame.f_lineno, []):
+                try:
+                    if isinstance(cc, list):
+                        a, b = ev(cc[0], frame), ev(cc[1], frame)
+                        if isint(a) and isint(b):
+                            st["reads"].append({"seq": seq, "idx": [a, b]})
+                    else:
+                        x = ev(cc, frame)
+                        if isint(x) and not is_key:
+                            st["reads"].append({"seq": seq, "idx": x})
+                        else:
+                            st["reads"].append({"seq": seq, "key": _short(x, 40)})
+                except Exception:
+                    pass
+        elif event == "return":
+            st["ret"] = _enc(arg, 1, refs)
+        elif event == "exception":
+            st["exc"] = f"{arg[0].__name__}: {arg[1]}"
+
+        st["heap"] = _heap(refs)
+        steps.append(st)
+        return tracer
+
+    g = {"__name__": "__main__"}
+    exec(compile(PRELUDE, "<prelude>", "exec"), g)
+    result, check, error = None, None, None
+    mode = an["mode"]
+    with contextlib.redirect_stdout(buf):
+        try:
+            code_obj = compile(code, FN, "exec")
+            if mode == "script":
+                sys.settrace(tracer)
+                try:
+                    exec(code_obj, g)
+                finally:
+                    sys.settrace(None)
+            else:
+                exec(code_obj, g)
+                try:
+                    if mode == "design":
+                        ops = _eval_in(cfg.get("ops"), g, "operations")
+                        oargs = _eval_in(cfg.get("opargs"), g, "arguments")
+                        if not isinstance(ops, list) or not isinstance(oargs, list) or len(ops) != len(oargs) or not ops:
+                            raise ValueError("'operations' and 'arguments' must be lists of the same length")
+                        cls = g.get(ops[0])
+                        if not isinstance(cls, type):
+                            raise ValueError(f"Class '{ops[0]}' is not defined in your code")
+                    else:
+                        m = next((x for x in an["methods"] if x["name"] == cfg.get("method")), an["methods"][0])
+                        fn = getattr(g["Solution"](), m["name"]) if mode == "solution" else g[m["name"]]
+                        vals = [_convert(_eval_in(cfg.get("args", {}).get(p["name"]), g, p["name"]), p["ann"], g)
+                                for p in m["params"]]
+                    exp_src = (cfg.get("expected") or "").strip()
+                    expected = _eval_in(exp_src, g, "expected") if exp_src else None
+                except ValueError as e:
+                    raise InputError(str(e))
+
+                sys.settrace(tracer)
+                try:
+                    if mode == "design":
+                        obj = cls(*oargs[0])
+                        res = [None]
+                        for op, a in zip(ops[1:], oargs[1:]):
+                            res.append(getattr(obj, op)(*a))
+                    else:
+                        res = fn(*vals)
+                finally:
+                    sys.settrace(None)
+                plain = _plain(res)
+                result = _fmt(plain)
+                if exp_src:
+                    check = {"ok": _eq(plain, _plain(expected)), "expected": _fmt(_plain(expected))}
+        except StepLimit:
+            error = f"Reached the limit of {LIMIT} steps (infinite loop or input too large?). Showing the first {LIMIT}."
+        except InputError as e:
+            error = str(e)
+        except Exception as e:
+            line = None
+            for fr, ln in traceback.walk_tb(e.__traceback__):
+                if fr.f_code.co_filename == FN:
+                    line = ln
+            error = f"{type(e).__name__}: {e}" + (f" (line {line})" if line else "")
+
+    return json.dumps({"steps": steps, "pointers": an["pointers"], "result": result, "check": check,
+                       "error": error, "stdout": buf.getvalue()})
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridstack@14.1.0/dist/gridstack-all.js"></script>
+
+<script>
+// ===================== Persistence (autosave) =====================
+const STORE = "viz.state.v1";
+const TEMPLATE = `class Solution:
+    def solve(self, nums: List[int]) -> int:
+        pass
+`;
+const state = Object.assign(
+  { code: TEMPLATE, method: null, cases: null, caseIdx: 0, speed: "800", fmtOnRun: true, layout: null },
+  JSON.parse(localStorage.getItem(STORE) || "{}"));
+
+// test cases (tabs in "Inputs"); migrates the old single-case format
+if (!Array.isArray(state.cases) || !state.cases.length) {
+  state.cases = [{ args: state.args || {}, expected: state.expected || {}, ops: state.ops || "", opargs: state.opargs || "" }];
+  state.caseIdx = 0;
+}
+for (const k of ["args", "expected", "ops", "opargs"]) delete state[k];
+state.caseIdx = Math.min(Math.max(0, state.caseIdx | 0), state.cases.length - 1);
+const C = () => state.cases[state.caseIdx];
+const caseResults = new Map(); // case → "ok" | "bad" | "err" | "ran" (in memory only)
+
+let saveTimer = null, savedFade = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORE, JSON.stringify(state));
+      const el = $("saved");
+      el.textContent = "✓ Saved";
+      el.style.opacity = 1;
+      clearTimeout(savedFade);
+      savedFade = setTimeout(() => { el.style.opacity = 0; }, 1500);
+    } catch (e) {
+      $("saved").textContent = "⚠ Could not save";
+    }
+  }, 400);
+}
+
+// ===================== Constants and state =====================
+// CSS variables, so pointer colors follow the active theme without re-rendering
+const COLORS = Array.from({ length: 9 }, (_, i) => `var(--p${i})`);
+const CELL = 44, LANE = 30, MAX_CELLS = 80, GC = 38;
+
+let pyodide = null, pyReady = false;
+let analysis = null;
+let trace = null, cur = 0, lastRendered = -1, playTimer = null;
+let marks = { cur: null, prev: null };
+let varColors = new Map();
+const views = new Map();
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const div = (cls, html) => { const d = document.createElement("div"); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; };
+
+function colorOf(name) {
+  if (!varColors.has(name)) varColors.set(name, COLORS[varColors.size % COLORS.length]);
+  return varColors.get(name);
+}
+
+// ===================== Theme =====================
+const currentTheme = () => document.documentElement.dataset.theme;
+const cmTheme = () => currentTheme() === "light" ? "idea" : "material-darker";
+function applyTheme(t, persist) {
+  document.documentElement.dataset.theme = t;
+  if (typeof editor !== "undefined") editor.setOption("theme", cmTheme());
+  $("themeBtn").title = t === "light" ? "Switch to dark mode" : "Switch to light mode";
+  if (persist) { state.theme = t; save(); }
+}
+$("themeBtn").onclick = () => applyTheme(currentTheme() === "light" ? "dark" : "light", true);
+// follow the OS setting until the user picks a theme explicitly
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
+  if (!state.theme) applyTheme(e.matches ? "light" : "dark", false);
+});
+
+// ===================== Editor =====================
+const editor = CodeMirror.fromTextArea($("code"), {
+  mode: "python", theme: cmTheme(), lineNumbers: true, indentUnit: 4,
+  tabSize: 4, indentWithTabs: false, gutters: ["cur-gutter", "CodeMirror-linenumbers"],
+  autoCloseBrackets: "()[]{}''\"\"``",
+  extraKeys: {
+    Tab: (cm) => cm.somethingSelected() ? cm.indentSelection("add") : cm.replaceSelection("    "),
+    "Shift-Tab": (cm) => cm.indentSelection("subtract"),
+    "Cmd-Enter": () => runTrace(), "Ctrl-Enter": () => runTrace(),
+    "Shift-Alt-F": () => formatCode(), "Shift-Cmd-F": () => formatCode(),
+  },
+});
+applyTheme(currentTheme(), false);
+editor.setValue(state.code);
+editor.clearHistory();
+$("speed").value = state.speed;
+
+let analyzeTimer = null;
+editor.on("change", () => {
+  state.code = editor.getValue();
+  save();
+  if (trace) { stop(); trace = null; clearHighlight(); setStatus("Code changed: run it again", ""); }
+  if (caseResults.size) { caseResults.clear(); renderCaseTabs(); }
+  clearTimeout(analyzeTimer);
+  analyzeTimer = setTimeout(analyzeNow, 400);
+});
+
+function analyzeNow() {
+  if (!pyReady) return;
+  analysis = JSON.parse(pyodide.globals.get("analyze_json")(editor.getValue()));
+  renderInputs();
+}
+
+function currentMethod() {
+  if (!analysis || !analysis.methods || !analysis.methods.length) return null;
+  return analysis.methods.find((m) => m.name === state.method) || analysis.methods[0];
+}
+
+function field(box, label, value, placeholder, onInput) {
+  const row = div("row");
+  const lab = document.createElement("label");
+  lab.textContent = label;
+  lab.title = label;
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.value = value ?? "";
+  inp.placeholder = placeholder || "";
+  inp.spellcheck = false;
+  inp.oninput = () => { onInput(inp.value); save(); if (caseResults.delete(state.caseIdx)) renderCaseTabs(); };
+  inp.onkeydown = (e) => { if (e.key === "Enter") runTrace(); };
+  row.replaceChildren(lab, inp);
+  box.appendChild(row);
+}
+
+function renderInputs() {
+  const box = $("inputs");
+  box.innerHTML = "";
+  const a = analysis;
+  const hint = (t, cls) => { const h = div("hint" + (cls ? " " + cls : "")); h.textContent = t; box.appendChild(h); };
+
+  const info = (t) => { $("inputsTip").textContent = t; $("inputsInfo").classList.remove("hidden"); };
+  $("inputsInfo").classList.add("hidden");
+
+  if (!a) { hint("Loading…"); }
+  else if (!a.ok) { hint(a.error, "err"); }
+  else if (a.mode === "solution" || a.mode === "function") {
+    const m = currentMethod();
+    if (a.methods.length > 1) {
+      const row = div("row");
+      const lab = document.createElement("label");
+      lab.textContent = "method";
+      const sel = document.createElement("select");
+      a.methods.forEach((x) => sel.add(new Option(x.name, x.name, false, x.name === m.name)));
+      sel.onchange = () => { state.method = sel.value; save(); renderInputs(); };
+      row.replaceChildren(lab, sel);
+      box.appendChild(row);
+    }
+    info(`Inputs for ${a.mode === "solution" ? "Solution()." : ""}${m.name}(…) — LeetCode format (null, true, false) or Python`);
+    for (const p of m.params) {
+      const key = `${m.name}:${p.name}`;
+      const ph = /TreeNode/.test(p.ann) ? "[3,9,20,null,null,15,7]" : /ListNode/.test(p.ann) ? "[1,2,3,4,5]" : p.ann;
+      field(box, p.name, C().args[key] ?? C().args[p.name] ?? "", ph, (v) => { C().args[key] = v; });
+    }
+    field(box, "expected", C().expected[m.name] ?? "", "optional", (v) => { C().expected[m.name] = v; });
+  } else if (a.mode === "design") {
+    info("Design problem — LeetCode format");
+    field(box, "operations", C().ops, '["LRUCache","put","get"]', (v) => { C().ops = v; });
+    field(box, "arguments", C().opargs, "[[2],[1,1],[1]]", (v) => { C().opargs = v; });
+    field(box, "expected", C().expected.__design ?? "", "optional: [null,null,1]", (v) => { C().expected.__design = v; });
+  } else {
+    info("Runs as a script, top to bottom.");
+  }
+
+  updateRunBtn();
+}
+
+let running = false;
+function updateRunBtn() {
+  const a = analysis;
+  $("runBtn").disabled = running || !pyReady || !!(a && !a.ok);
+  $("runBtn").classList.toggle("busy", running);
+}
+$("runBtn").onclick = () => runTrace();
+
+// ===================== Test cases (tabs) =====================
+const RESULT_TITLE = { ok: "Matches expected", bad: "Does not match expected", err: "Error", ran: "Ran" };
+function renderCaseTabs() {
+  const box = $("caseTabs");
+  box.innerHTML = "";
+  state.cases.forEach((_, i) => {
+    const t = document.createElement("button");
+    t.className = "tab" + (i === state.caseIdx ? " active" : "");
+    t.setAttribute("role", "tab");
+    t.setAttribute("aria-selected", i === state.caseIdx);
+    const r = caseResults.get(i);
+    t.title = r ? RESULT_TITLE[r] : "";
+    t.innerHTML = `<span class="rdot ${r || ""}"></span>Case ${i + 1}`;
+    t.onclick = () => selectCase(i);
+    if (state.cases.length > 1) {
+      const x = document.createElement("span");
+      x.className = "close"; x.textContent = "×"; x.title = "Delete case";
+      x.onclick = (e) => { e.stopPropagation(); deleteCase(i); };
+      t.appendChild(x);
+    }
+    box.appendChild(t);
+  });
+  const add = document.createElement("button");
+  add.className = "tab add"; add.textContent = "+"; add.title = "New case (copy of current)";
+  add.onclick = addCase;
+  box.appendChild(add);
+  box.querySelector(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+function canRun() { return pyReady && !(analysis && !analysis.ok); }
+
+function selectCase(i) {
+  if (i === state.caseIdx) return;
+  state.caseIdx = i;
+  save();
+  renderCaseTabs();
+  renderInputs();
+  if (canRun()) runTrace();
+}
+
+function addCase() {
+  state.cases.push(structuredClone(C()));
+  selectCase(state.cases.length - 1);
+}
+
+function shiftResults(removed) {
+  const old = new Map(caseResults);
+  caseResults.clear();
+  old.forEach((v, k) => { if (k !== removed) caseResults.set(k > removed ? k - 1 : k, v); });
+}
+
+function deleteCase(i) {
+  if (state.cases.length < 2) return;
+  state.cases.splice(i, 1);
+  shiftResults(i);
+  const wasActive = i === state.caseIdx;
+  if (i < state.caseIdx || state.caseIdx >= state.cases.length) state.caseIdx--;
+  save();
+  renderCaseTabs();
+  if (wasActive) { renderInputs(); if (canRun()) runTrace(); }
+}
+renderCaseTabs();
+
+// ===================== Formatting (Ruff → WebAssembly, Black style) =====================
+const RUFF_URL = "https://cdn.jsdelivr.net/npm/@astral-sh/ruff-wasm-web@0.17.4/ruff_wasm.js";
+let ruffPromise = null;
+function loadRuff() {
+  ruffPromise ??= (async () => {
+    const mod = await import(RUFF_URL);
+    await mod.default();
+    return new mod.Workspace(mod.Workspace.defaultSettings(), mod.PositionEncoding.Utf16);
+  })().catch((e) => { ruffPromise = null; throw e; });
+  return ruffPromise;
+}
+
+async function formatCode({ quiet = false } = {}) {
+  const btn = $("formatBtn");
+  const src = editor.getValue();
+  btn.disabled = true;
+  if (!ruffPromise && !quiet) setStatus("Loading formatter…", "");
+  try {
+    const ws = await loadRuff();
+    let out;
+    try { out = ws.format(src); }
+    catch (e) {
+      // code with a syntax error: leave it alone; the tracer reports the error on run
+      if (!quiet) setStatus("Could not format: " + String(e.message || e).replace(/^Error:\s*/, ""), "error");
+      return false;
+    }
+    if (out !== src) {
+      const cur = editor.getCursor(), scroll = editor.getScrollInfo();
+      const lineText = editor.getLine(cur.line).trim();
+      editor.operation(() => {
+        editor.replaceRange(out, { line: 0, ch: 0 }, { line: editor.lastLine() });
+        // try to keep the cursor on the same logical line
+        let line = Math.min(cur.line, editor.lastLine());
+        if (lineText) {
+          for (let d = 0; d < 12; d++) {
+            if (editor.getLine(cur.line + d)?.trim() === lineText) { line = cur.line + d; break; }
+            if (editor.getLine(cur.line - d)?.trim() === lineText) { line = cur.line - d; break; }
+          }
+        }
+        editor.setCursor({ line, ch: Math.min(cur.ch, editor.getLine(line).length) });
+        editor.scrollTo(scroll.left, scroll.top);
+      });
+    }
+    if (!quiet) setStatus(out !== src ? "Code formatted" : "Code was already formatted", "ready");
+    return true;
+  } catch (e) {
+    if (!quiet) setStatus("Could not load the formatter: " + e.message, "error");
+    return false;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("formatBtn").onclick = () => formatCode();
+$("fmtOnRun").checked = !!state.fmtOnRun;
+$("fmtOnRun").onchange = (e) => { state.fmtOnRun = e.target.checked; save(); };
+
+// ===================== Card layout (GridStack) =====================
+const CARD_NAMES = {
+  editor: "Code", inputs: "Inputs", player: "Player", event: "Current step", structs: "Data structures",
+  cmps: "Comparisons", stack: "Call stack", vars: "Variables", out: "Output",
+};
+// 12 columns × 20 visible rows; row height adapts to the window
+const ROWS = 20;
+const DEFAULT_LAYOUT = [
+  { id: "editor", x: 0, y: 0, w: 5, h: 13, minW: 3, minH: 4 },
+  { id: "inputs", x: 0, y: 13, w: 5, h: 7, minW: 3, minH: 3 },
+  { id: "player", x: 5, y: 0, w: 7, h: 2, minW: 4, minH: 2, maxH: 2 },
+  { id: "event", x: 5, y: 2, w: 7, h: 2, minW: 3, minH: 2 },
+  { id: "structs", x: 5, y: 4, w: 7, h: 7, minW: 3, minH: 3 },
+  { id: "vars", x: 5, y: 11, w: 4, h: 9, minW: 2, minH: 3 },
+  { id: "stack", x: 9, y: 11, w: 3, h: 3, minW: 2, minH: 2 },
+  { id: "cmps", x: 9, y: 14, w: 3, h: 3, minW: 2, minH: 2 },
+  { id: "out", x: 9, y: 17, w: 3, h: 3, minW: 2, minH: 2 },
+];
+const GS = window.GridStack && (window.GridStack.GridStack || window.GridStack);
+const items = new Map([...document.querySelectorAll("#board > .grid-stack-item")].map((el) => [el.getAttribute("gs-id"), el]));
+let grid = null, editing = false;
+
+function savedLayout() {
+  const L = state.layout;
+  if (!L || !Array.isArray(L.items)) return { items: DEFAULT_LAYOUT, hidden: [] };
+  const byId = new Map(L.items.map((i) => [i.id, i]));
+  // merge with defaults (respects minimums and newly added cards)
+  return {
+    items: DEFAULT_LAYOUT.map((d) => {
+      const s = byId.get(d.id);
+      if (!s) return d;
+      const num = (v, def) => Number.isFinite(v) ? v : def;
+      return { ...d, x: num(s.x, d.x), y: num(s.y, d.y),
+        w: Math.max(d.minW, num(s.w, d.w)), h: Math.max(d.minH, Math.min(d.maxH ?? 99, num(s.h, d.h))) };
+    }),
+    hidden: (L.hidden || []).filter((id) => items.has(id)),
+  };
+}
+
+function cellHeight() {
+  const avail = window.innerHeight - 48 - 12;
+  return Math.max(30, Math.floor(avail / ROWS));
+}
+
+function applyAttrs(el, it) {
+  for (const k of ["x", "y", "w", "h", "minW", "minH", "maxH"]) {
+    const attr = "gs-" + k.replace(/[A-Z]/, (c) => "-" + c.toLowerCase());
+    if (it[k] != null) el.setAttribute(attr, it[k]); else el.removeAttribute(attr);
+  }
+}
+
+function persistLayout() {
+  if (!grid || grid.getColumn() !== 12) return; // don't persist the compact (mobile) layout
+  const hidden = [...items.keys()].filter((id) => !items.get(id).gridstackNode);
+  state.layout = {
+    items: grid.engine.nodes.filter((n) => n.id).map(({ id, x, y, w, h }) => ({ id, x, y, w, h })),
+    hidden,
+  };
+  save();
+}
+
+function refreshEditor() { editor.refresh(); }
+
+function updateOverlays() {
+  items.forEach((el, id) => {
+    const n = el.gridstackNode, sz = el.querySelector(".card-overlay .sz");
+    if (n && sz) sz.textContent = `${n.w} × ${n.h}`;
+  });
+}
+
+function initLayout() {
+  if (!GS) { console.warn("GridStack failed to load; using a fixed layout"); return; }
+  const L = savedLayout();
+  // edit overlay on every card
+  items.forEach((el, id) => {
+    const ov = div("card-overlay", `<span class="t"></span><span class="sz"></span>`);
+    ov.querySelector(".t").textContent = CARD_NAMES[id];
+    const x = document.createElement("button");
+    x.className = "x"; x.textContent = "Hide"; x.title = "Hide card";
+    x.onmousedown = x.ontouchstart = (e) => e.stopPropagation();
+    x.onclick = (e) => { e.stopPropagation(); hideCard(id); };
+    if (id !== "editor") ov.appendChild(x); // the editor is always visible
+    el.querySelector(".card").appendChild(ov);
+  });
+  L.items.forEach((it) => applyAttrs(items.get(it.id), it));
+  L.hidden.filter((id) => id !== "editor").forEach((id) => $("hiddenCards").appendChild(items.get(id)));
+
+  grid = GS.init({
+    column: 12, cellHeight: cellHeight(), margin: 6, float: false, animate: true,
+    staticGrid: true, handle: ".card-overlay",
+    resizable: { handles: "e, se, s, sw, w", autoHide: false },
+    columnOpts: { breakpoints: [{ w: 820, c: 1 }], layout: "list" },
+  }, "#board");
+
+  grid.on("change added removed", () => { persistLayout(); updateOverlays(); });
+  grid.on("resize", updateOverlays);
+  grid.on("resizestop dragstop", refreshEditor);
+  let rt = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { grid.cellHeight(cellHeight()); refreshEditor(); }, 120);
+  });
+  updateOverlays();
+  setTimeout(refreshEditor, 0);
+}
+
+function hideCard(id) {
+  const el = items.get(id);
+  if (!el.gridstackNode) return;
+  grid.removeWidget(el, false);
+  $("hiddenCards").appendChild(el);
+  renderCardsMenu();
+  persistLayout();
+}
+
+function showCard(id) {
+  const el = items.get(id);
+  if (el.gridstackNode) return;
+  const d = DEFAULT_LAYOUT.find((i) => i.id === id);
+  $("board").appendChild(el);
+  grid.makeWidget(el, { w: d.w, h: d.h, minW: d.minW, minH: d.minH, maxH: d.maxH, autoPosition: true });
+  renderCardsMenu();
+  persistLayout();
+  refreshEditor();
+}
+
+function renderCardsMenu() {
+  const m = $("cardsMenu");
+  m.innerHTML = "";
+  items.forEach((el, id) => {
+    if (id === "editor") return;
+    const lab = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = !!el.gridstackNode;
+    cb.onchange = () => cb.checked ? showCard(id) : hideCard(id);
+    lab.append(cb, document.createTextNode(CARD_NAMES[id]));
+    m.appendChild(lab);
+  });
+}
+
+function setEditing(on) {
+  editing = on;
+  document.body.classList.toggle("editing", on);
+  $("layoutBtn").textContent = on ? "✓ Done" : "⊞ Edit layout";
+  grid.setStatic(!on);
+  if (!on) $("cardsMenu").classList.add("hidden");
+  if (on) stop();
+}
+
+function resetLayout() {
+  [...items.keys()].forEach((id) => { if (!items.get(id).gridstackNode) showCard(id); });
+  grid.batchUpdate();
+  DEFAULT_LAYOUT.forEach((d) => grid.update(items.get(d.id), { x: d.x, y: d.y, w: d.w, h: d.h }));
+  grid.batchUpdate(false);
+  state.layout = null;
+  save();
+  renderCardsMenu();
+  updateOverlays();
+  setTimeout(refreshEditor, 320);
+}
+
+initLayout();
+if (grid) {
+  $("layoutBtn").onclick = () => setEditing(!editing);
+  $("resetLayoutBtn").onclick = resetLayout;
+  $("cardsBtn").onclick = (e) => { e.stopPropagation(); renderCardsMenu(); $("cardsMenu").classList.toggle("hidden"); };
+  document.addEventListener("click", (e) => { if (!e.target.closest("#cardsMenu, #cardsBtn")) $("cardsMenu").classList.add("hidden"); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && editing) setEditing(false); });
+} else {
+  $("layoutBtn").classList.add("hidden");
+}
+
+// ===================== Pyodide =====================
+function setStatus(text, cls) { const s = $("status"); s.textContent = text; s.title = text; s.className = cls || ""; }
+
+function setRuntime(cls, label) { $("runtime").className = "runtime " + cls; $("rtState").textContent = label; }
+
+renderInputs();
+(async () => {
+  try {
+    pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+    pyodide.runPython($("tracer-src").textContent);
+    pyReady = true;
+    setStatus("", "");
+    setRuntime("ready", "Online");
+    $("rtPy").textContent = pyodide.runPython("import sys; sys.version.split()[0]");
+    $("rtPyodide").textContent = pyodide.version;
+    analyzeNow();
+    if (state.fmtOnRun) loadRuff().catch(() => {}); // preload so the first "Run" doesn't wait
+  } catch (e) {
+    setStatus("Could not load Pyodide: " + e.message, "error");
+    setRuntime("error", "Failed to load");
+  }
+})();
+
+let rerunQueued = false;
+async function runTrace() {
+  if (!pyReady) return;
+  if (running) { rerunQueued = true; return; }
+  running = true;
+  updateRunBtn();
+  try {
+    do { rerunQueued = false; await doRun(); } while (rerunQueued);
+  } finally { running = false; updateRunBtn(); }
+}
+
+async function doRun() {
+  stop();
+  setStatus("Running…", "");
+  await new Promise((r) => setTimeout(r, 20));
+  if (state.fmtOnRun) await formatCode({ quiet: true });
+  const idx = state.caseIdx, c = C();
+  const m = currentMethod();
+  const cfg = {
+    method: m ? m.name : null,
+    args: {},
+    ops: c.ops, opargs: c.opargs,
+    expected: analysis && analysis.mode === "design" ? c.expected.__design : (m ? c.expected[m.name] : ""),
+  };
+  if (m) for (const p of m.params) cfg.args[p.name] = c.args[`${m.name}:${p.name}`] ?? c.args[p.name] ?? "";
+
+  try {
+    trace = JSON.parse(pyodide.globals.get("run")(editor.getValue(), JSON.stringify(cfg)));
+  } catch (e) {
+    setStatus("Internal error: " + e.message, "error");
+    return;
+  }
+  caseResults.set(idx, trace.error ? "err" : trace.check ? (trace.check.ok ? "ok" : "bad") : "ran");
+  renderCaseTabs();
+  views.forEach((v) => v.el.remove());
+  views.clear();
+  varColors = new Map();
+  Object.keys(trace.pointers).sort().forEach(colorOf);
+  cur = 0; lastRendered = -1;
+  $("slider").max = Math.max(0, trace.steps.length - 1);
+  if (trace.error) setStatus(trace.error, "error");
+  else setStatus(`${trace.steps.length} steps recorded`, "ready");
+  render();
+  if (trace.steps.length > 1) play(); // autoplay
+}
+
+// ===================== Player =====================
+function go(i) {
+  if (!trace || !trace.steps.length) return;
+  cur = Math.max(0, Math.min(trace.steps.length - 1, i));
+  render();
+}
+const speed = () => +$("speed").value;
+function play() {
+  if (!trace || !trace.steps.length) return;
+  if (cur >= trace.steps.length - 1) go(0);
+  $("playBtn").textContent = "⏸";
+  playTimer = setInterval(() => {
+    if (cur >= trace.steps.length - 1) return stop();
+    go(cur + 1);
+  }, speed());
+}
+function stop() { clearInterval(playTimer); playTimer = null; $("playBtn").textContent = "▶"; }
+const toggle = () => playTimer ? stop() : play();
+
+$("firstBtn").onclick = () => { stop(); go(0); };
+$("prevBtn").onclick = () => { stop(); go(cur - 1); };
+$("nextBtn").onclick = () => { stop(); go(cur + 1); };
+$("lastBtn").onclick = () => { stop(); go(Infinity); };
+$("playBtn").onclick = toggle;
+$("slider").oninput = (e) => { stop(); go(+e.target.value); };
+$("speed").onchange = () => { state.speed = $("speed").value; save(); if (playTimer) { stop(); play(); } };
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest(".CodeMirror") || ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+  if (e.key === "ArrowRight") { stop(); go(cur + 1); e.preventDefault(); }
+  else if (e.key === "ArrowLeft") { stop(); go(cur - 1); e.preventDefault(); }
+  else if (e.key === " ") { toggle(); e.preventDefault(); }
+});
+
+// ===================== Value helpers =====================
+function show(v) {
+  if (!v) return "";
+  if (v.t === "str") return "'" + v.v.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n") + "'";
+  if (v.t === "ref") return v.v;
+  if (!Array.isArray(v.v)) return String(v.v);
+  if (v.d) {
+    const body = v.v.map(([k, x]) => `${k}: ${show(x)}`).join(", ");
+    return v.t === "dict" ? `{${body}}` : `${v.t}({${body}})`;
+  }
+  if (v.s) return v.v.length ? `{${v.v.join(", ")}}` : "set()";
+  const body = v.v.map(show).join(", ");
+  if (v.t === "tuple") return `(${body}${v.v.length === 1 ? "," : ""})`;
+  if (v.t === "deque") return `deque([${body}])`;
+  return `[${body}]`;
+}
+const cellText = (x) => x.t === "str" ? x.v : x.t === "ref" ? "•" + x.val : x.t === "bool" ? x.v[0] : show(x);
+const isArr = (v) => v && Array.isArray(v.v) && !v.d && !v.s && v.t !== "ref";
+const isPrim = (x) => ["int", "float", "str", "bool", "none", "ref"].includes(x.t);
+function isGrid(v) {
+  return isArr(v) && v.v.length > 0 && v.v.length <= 40 &&
+    v.v.every((r) => isArr(r) && r.v.length <= 40 && r.v.every(isPrim)) && v.v.some((r) => r.v.length > 0);
+}
+function isSeq(v) {
+  return (v.t === "str" && v.v.length <= MAX_CELLS) || (isArr(v) && v.v.length <= MAX_CELLS && v.v.every(isPrim));
+}
+const isDict = (v) => v && v.d;
+const isSet = (v) => v && v.s;
+const intVal = (st, name) => { const v = st.locals[name]; return v && v.t === "int" && typeof v.v === "number" ? v.v : null; };
+
+// ===================== Main render =====================
+function clearHighlight() {
+  if (marks.cur != null) editor.removeLineClass(marks.cur, "background", "cm-cur");
+  if (marks.prev != null) editor.removeLineClass(marks.prev, "background", "cm-prev");
+  marks = { cur: null, prev: null };
+  editor.clearGutter("cur-gutter");
+}
+
+function highlightLines(line, prevLine) {
+  clearHighlight();
+  if (line < 1 || line > editor.lineCount()) return;
+  if (prevLine != null && prevLine !== line && prevLine <= editor.lineCount()) {
+    marks.prev = prevLine - 1;
+    editor.addLineClass(marks.prev, "background", "cm-prev");
+  }
+  marks.cur = line - 1;
+  editor.addLineClass(marks.cur, "background", "cm-cur");
+  const g = document.createElement("span");
+  g.textContent = "➜";
+  editor.setGutterMarker(marks.cur, "cur-gutter", g);
+  editor.scrollIntoView({ line: marks.cur, ch: 0 }, 80);
+}
+
+function render() {
+  const n = trace ? trace.steps.length : 0;
+  $("slider").value = cur;
+  $("stepLabel").textContent = n ? `${cur + 1} / ${n}` : "0 / 0";
+  ["firstBtn", "prevBtn"].forEach((b) => $(b).disabled = !n || cur === 0);
+  ["nextBtn", "lastBtn"].forEach((b) => $(b).disabled = !n || cur >= n - 1);
+  $("playBtn").disabled = !n;
+
+  if (!n) {
+    setEventTone("exc");
+    $("event").innerHTML = `<span class="bad">${esc(trace.error || "No steps to show")}</span>`;
+    ["structs", "stack", "vars"].forEach((id) => $(id).innerHTML = `<span class="empty">—</span>`);
+    $("cmps").innerHTML = `<span class="empty">—</span>`;
+    renderOutput(null);
+    return;
+  }
+
+  const st = trace.steps[cur];
+  const prev = cur > 0 ? trace.steps[cur - 1] : null;
+  const animate = lastRendered === cur - 1;
+  lastRendered = cur;
+
+  highlightLines(st.line, prev ? prev.line : null);
+  renderEvent(st);
+  renderStructs(st, animate ? prev : null);
+  renderCmps(st);
+  renderStack(st);
+  renderVars(st, animate ? prev : null);
+  renderOutput(st);
+}
+
+function setEventTone(tone) {
+  const c = $("eventCard");
+  c.classList.toggle("ret", tone === "ret");
+  c.classList.toggle("exc", tone === "exc");
+}
+
+function renderEvent(st) {
+  const el = $("event");
+  const top = st.stack[st.stack.length - 1];
+  let html;
+  if (st.ev === "return") {
+    setEventTone("ret");
+    html = `↩ <b>${esc(top.fn)}</b> retorna <b class="ok">${esc(show(st.ret))}</b>`;
+  } else if (st.ev === "exception") {
+    setEventTone("exc");
+    html = `⚠ <b class="bad">${esc(st.exc)}</b> on line ${st.line}`;
+  } else {
+    setEventTone(null);
+    html = `➜ line ${st.line}: <b>${esc((editor.getLine(st.line - 1) || "").trim())}</b>`;
+  }
+  html += `<div class="sub">in ${esc(top.fn)}() · depth ${st.stack.length}</div>`;
+  el.innerHTML = html;
+}
+
+function cmpStateOf(st) {
+  const cs = st.cmps || [];
+  if (cs.some((c) => c.err)) return "err";
+  if (cs.some((c) => c.res === true)) return "match";
+  if (cs.length) return "nomatch";
+  return "read";
+}
+
+// ===================== Data structures =====================
+function renderStructs(st, prev) {
+  const box = $("structs");
+  const ptrs = trace.pointers;
+  const ctx = { st, prev, ptrs, cmpState: cmpStateOf(st), dur: Math.min(450, speed() * 0.65) };
+  const want = [];
+
+  const nodes = collectNodes(st);
+  if (nodes.lists.length || nodes.trees.length || nodes.graph) want.push(["nodes", "nodes", null]);
+
+  const hasPtr = (name) => Object.keys(ptrs).some((p) => ptrs[p].some((s) => s.split("#")[0] === name) && intVal(st, p) != null);
+  const names = Object.keys(st.locals);
+  const kinds = [];
+  for (const name of names) {
+    const v = st.locals[name];
+    if (isGrid(v)) kinds.push(["grid", name]);
+    else if (isSeq(v)) kinds.push(["arr", name]);
+    else if (isDict(v) && v.v.length) kinds.push(["dict", name]);
+    else if (isSet(v)) kinds.push(["set", name]);
+  }
+  const rank = ([k, n]) => (hasPtr(n) ? 0 : 10) + { grid: 1, arr: 0, dict: 2, set: 3 }[k];
+  kinds.sort((a, b) => rank(a) - rank(b));
+  for (const [k, n] of kinds) want.push([`${k}:${n}`, k, n]);
+
+  const keys = new Set(want.map((w) => w[0]));
+  for (const [key, v] of views) if (!keys.has(key)) { v.el.remove(); views.delete(key); }
+  if (!want.length) { box.innerHTML = `<span class="empty">No arrays, matrices, dicts or nodes in this frame.</span>`; return; }
+  box.querySelector(":scope > .empty")?.remove();
+
+  want.forEach(([key, kind, name], order) => {
+    let v = views.get(key);
+    if (!v) {
+      v = { arr: makeArrayView, grid: makeGridView, dict: makeDictView, set: makeSetView, nodes: makeNodesView }[kind](name);
+      views.set(key, v);
+    }
+    if (box.children[order] !== v.el) box.insertBefore(v.el, box.children[order] || null);
+    v.update(kind === "nodes" ? nodes : st.locals[name], ctx);
+  });
+}
+
+function placeArrow(map, parent, key, cls, html, x, y, color, dur, out) {
+  let a = map.get(key);
+  if (!a) {
+    a = div(cls);
+    a.style.color = color;
+    a.style.transform = `translate(${x}px, ${y}px)`;
+    parent.appendChild(a);
+    map.set(key, a);
+  }
+  a.style.transition = `transform ${dur}ms cubic-bezier(.2,.8,.2,1)`;
+  a.style.transform = `translate(${x}px, ${y}px)`;
+  a.classList.toggle("out", !!out);
+  if (a._html !== html) { a.innerHTML = html; a._html = html; }
+  return a;
+}
+function pruneArrows(map, keep) {
+  for (const [k, a] of map) if (!keep.has(k)) { a.remove(); map.delete(k); }
+}
+
+// ---- array / string ----
+function makeArrayView(name) {
+  const el = div("struct", `<div class="sname"></div><div class="scroll"><div class="inner">
+    <div class="idxs"></div><div class="cells"></div><div class="ptrs"></div></div></div>`);
+  const q = (s) => el.querySelector(s);
+  const arrows = new Map();
+  return {
+    el,
+    update(val, ctx) {
+      const { st, prev, ptrs } = ctx;
+      const arr = val.t === "str" ? Array.from(val.v) : val.v.map(cellText);
+      q(".sname").innerHTML = `${esc(name)}<span class="type">${val.t} · len ${arr.length}</span>`;
+      q(".idxs").innerHTML = arr.map((_, i) => `<div>${i}</div>`).join("") + `<div>${arr.length}</div>`;
+
+      const readIdx = new Set((st.reads || []).filter((r) => r.seq === name && typeof r.idx === "number")
+        .map((r) => r.idx < 0 ? r.idx + arr.length : r.idx));
+      const pv = prev && prev.locals[name];
+      const prevArr = pv && isSeq(pv) ? (pv.t === "str" ? Array.from(pv.v) : pv.v.map(cellText)) : null;
+      let html = "";
+      arr.forEach((ch, i) => {
+        const cls = ["cell"];
+        if (String(ch).length > 3) cls.push("small");
+        if (readIdx.has(i)) cls.push(ctx.cmpState);
+        if (prevArr && (prevArr.length === arr.length ? prevArr[i] !== ch : i >= prevArr.length)) cls.push("changed");
+        html += `<div class="${cls.join(" ")}" title="${esc(ch)}">${esc(ch === " " ? "␣" : ch)}</div>`;
+      });
+      html += `<div class="cell ghost${readIdx.has(arr.length) ? " err" : ""}">end</div>`;
+      q(".cells").innerHTML = html;
+
+      const lanes = Object.keys(ptrs).filter((p) => ptrs[p].includes(name)).sort();
+      const live = lanes.filter((p) => intVal(st, p) != null);
+      q(".ptrs").style.height = (live.length ? lanes.length * LANE : 0) + "px";
+      for (const p of live) {
+        const idx = intVal(st, p);
+        const x = Math.max(-1, Math.min(arr.length, idx)) * CELL;
+        placeArrow(arrows, q(".ptrs"), p, "ptr", `<span class="tip">▲</span>${esc(p)}=${idx}`,
+          x, lanes.indexOf(p) * LANE, colorOf(p), ctx.dur, idx < 0 || idx >= arr.length);
+      }
+      pruneArrows(arrows, new Set(live));
+    },
+  };
+}
+
+// ---- 2D matrix ----
+function makeGridView(name) {
+  const el = div("struct", `<div class="sname"></div><div class="scroll"><div class="gcanvas">
+    <div class="glayer"></div><div class="garrows"></div></div></div>`);
+  const q = (s) => el.querySelector(s);
+  const arrows = new Map();
+  return {
+    el,
+    update(val, ctx) {
+      const { st, prev, ptrs } = ctx;
+      const rows = val.v.map((r) => r.v.map(cellText));
+      const nCols = Math.max(...rows.map((r) => r.length));
+      q(".sname").innerHTML = `${esc(name)}<span class="type">${val.t} · ${rows.length}×${nCols}</span>`;
+
+      const rowLanes = Object.keys(ptrs).filter((p) => ptrs[p].includes(name)).sort();
+      const colLanes = Object.keys(ptrs).filter((p) => ptrs[p].includes(name + "#col")).sort();
+      const left = rowLanes.length * 52 + 24;
+      const top = colLanes.length * 18 + 18;
+      const canvas = q(".gcanvas");
+      canvas.style.width = left + (nCols + 1) * GC + "px";
+      canvas.style.height = top + (rows.length + 1) * GC + "px";
+
+      const reads = (st.reads || []).filter((r) => r.seq === name);
+      const cellRead = new Set(reads.filter((r) => Array.isArray(r.idx)).map((r) => r.idx.join(",")));
+      const rowRead = new Set(reads.filter((r) => typeof r.idx === "number").map((r) => r.idx));
+      const pv = prev && prev.locals[name];
+      const prevRows = pv && isGrid(pv) ? pv.v.map((r) => r.v.map(cellText)) : null;
+
+      let html = "";
+      for (let c = 0; c < nCols; c++) html += `<div class="gidx" style="left:${left + c * GC}px;top:${top - 16}px">${c}</div>`;
+      rows.forEach((row, r) => {
+        html += `<div class="gidx" style="left:${left - 30}px;top:${top + r * GC + 11}px;width:24px">${r}</div>`;
+        row.forEach((ch, c) => {
+          const cls = ["gcell"];
+          if (cellRead.has(r + "," + c)) cls.push(ctx.cmpState);
+          else if (rowRead.has(r)) cls.push("rowread");
+          if (prevRows && prevRows[r] && prevRows[r][c] !== ch) cls.push("changed");
+          html += `<div class="${cls.join(" ")}" style="left:${left + c * GC}px;top:${top + r * GC}px" title="${esc(ch)}">${esc(ch)}</div>`;
+        });
+      });
+      q(".glayer").innerHTML = html;
+
+      const keep = new Set();
+      rowLanes.forEach((p, lane) => {
+        const v = intVal(st, p);
+        if (v == null) return;
+        keep.add("r:" + p);
+        const y = top + Math.max(-1, Math.min(rows.length, v)) * GC + 11;
+        placeArrow(arrows, q(".garrows"), "r:" + p, "gptr", `${esc(p)}=${v}▸`, lane * 52, y, colorOf(p), ctx.dur, v < 0 || v >= rows.length);
+      });
+      colLanes.forEach((p, lane) => {
+        const v = intVal(st, p);
+        if (v == null) return;
+        keep.add("c:" + p);
+        const x = left + Math.max(-1, Math.min(nCols, v)) * GC + 4;
+        placeArrow(arrows, q(".garrows"), "c:" + p, "gptr", `${esc(p)}=${v}▾`, x, lane * 18, colorOf(p), ctx.dur, v < 0 || v >= nCols);
+      });
+      pruneArrows(arrows, keep);
+    },
+  };
+}
+
+// ---- dictionary ----
+function makeDictView(name) {
+  const el = div("struct", `<div class="sname"></div><div class="scroll"><table class="dict"></table></div>`);
+  return {
+    el,
+    update(val, ctx) {
+      const { st, prev } = ctx;
+      el.querySelector(".sname").innerHTML = `${esc(name)}<span class="type">${val.t} · ${val.v.length} keys</span>`;
+      const readKeys = new Set((st.reads || []).filter((r) => r.seq === name).map((r) => r.key ?? String(r.idx)));
+      const pv = prev && prev.locals[name];
+      const before = pv && isDict(pv) ? new Map(pv.v.map(([k, x]) => [k, show(x)])) : null;
+      el.querySelector("table").innerHTML = val.v.map(([k, x]) => {
+        const s = show(x);
+        const ch = before && before.get(k) !== s ? " changed" : "";
+        const rd = readKeys.has(k) ? " " + ctx.cmpState : "";
+        return `<tr><td class="k${rd}">${esc(k)}</td><td class="${ch}">${esc(s)}</td></tr>`;
+      }).join("");
+    },
+  };
+}
+
+// ---- set ----
+function makeSetView(name) {
+  const el = div("struct", `<div class="sname"></div><div class="chips"></div>`);
+  return {
+    el,
+    update(val, ctx) {
+      const { st, prev } = ctx;
+      el.querySelector(".sname").innerHTML = `${esc(name)}<span class="type">${val.t} · ${val.v.length} items</span>`;
+      const readKeys = new Set((st.reads || []).filter((r) => r.seq === name).map((r) => r.key ?? String(r.idx)));
+      const pv = prev && prev.locals[name];
+      const before = pv && isSet(pv) ? new Set(pv.v) : null;
+      el.querySelector(".chips").innerHTML = val.v.length
+        ? val.v.map((x) => `<span class="${before && !before.has(x) ? "changed" : ""}${readKeys.has(x) ? " " + ctx.cmpState : ""}">${esc(x)}</span>`).join("")
+        : `<span class="empty" style="border:0;background:none">empty</span>`;
+      const missing = [...readKeys].filter((k) => !val.v.includes(k));
+      if (missing.length) el.querySelector(".chips").innerHTML += missing.map((k) => `<span class="nomatch" style="border-style:dashed">${esc(k)} ✗</span>`).join("");
+    },
+  };
+}
+
+// ---- nodes: linked lists, trees, tries, graphs ----
+function walkRefs(v, out) {
+  if (!v) return;
+  if (v.t === "ref") { out.push(v.id); return; }
+  if (Array.isArray(v.v)) {
+    if (v.d) v.v.forEach(([, x]) => walkRefs(x, out));
+    else if (!v.s) v.v.forEach((x) => walkRefs(x, out));
+  }
+}
+
+function collectNodes(st) {
+  const heap = st.heap || {};
+  const labels = new Map(), cands = [], inCont = new Set();
+  const add = (id) => { if (heap[id] && !cands.includes(id)) cands.push(id); };
+  for (const [k, v] of Object.entries(st.locals)) {
+    if (v.t === "ref") {
+      if (!labels.has(v.id)) labels.set(v.id, []);
+      labels.get(v.id).push(k);
+      add(v.id);
+    } else {
+      const out = [];
+      walkRefs(v, out);
+      out.forEach((id) => { inCont.add(id); add(id); });
+    }
+  }
+  for (const fr of st.stack) for (const v of Object.values(fr.vars || {})) if (v.t === "ref") add(v.id);
+
+  const pickMaximal = (ids, reach) => {
+    const infos = ids.map((id) => ({ id, set: reach(id) })).sort((a, b) => b.set.size - a.set.size);
+    const chosen = [];
+    for (const inf of infos) if (!chosen.some((c) => c.set.has(inf.id))) chosen.push(inf);
+    const firstIdx = (c) => Math.min(...ids.map((id, i) => c.set.has(id) ? i : Infinity));
+    return chosen.sort((a, b) => firstIdx(a) - firstIdx(b));
+  };
+
+  // lists
+  const chain = (id) => {
+    const ids = [], seen = new Map();
+    let c = id;
+    while (c && heap[c] && heap[c].k === "list" && !seen.has(c) && ids.length < 40) { seen.set(c, ids.length); ids.push(c); c = heap[c].n; }
+    return { ids, set: new Set(ids), cyc: c && seen.has(c) ? seen.get(c) : null, more: !!c && !seen.has(c) };
+  };
+  const listIds = cands.filter((id) => heap[id].k === "list");
+  const lists = pickMaximal(listIds, (id) => chain(id).set).map((c) => chain(c.id));
+
+  // trees
+  const kids = (e) => e.k === "bin" ? [[e.l, ""], [e.r, ""]].filter(([x]) => x && heap[x]) : (e.ch || []).filter(([, x]) => heap[x]).map(([l, x]) => [x, l]);
+  const subtree = (id) => {
+    const s = new Set(), q = [id];
+    while (q.length && s.size < 200) { const x = q.shift(); if (s.has(x) || !heap[x]) continue; s.add(x); kids(heap[x]).forEach(([c]) => q.push(c)); }
+    return s;
+  };
+  const treeIds = cands.filter((id) => heap[id].k === "bin" || heap[id].k === "nary");
+  const trees = pickMaximal(treeIds, subtree).map((c) => c.id);
+
+  // graph
+  let graph = null;
+  const gIds = cands.filter((id) => heap[id].k === "graph");
+  if (gIds.length) {
+    const s = new Set(), q = [...gIds];
+    while (q.length && s.size < 60) { const x = q.shift(); if (s.has(x) || !heap[x]) continue; s.add(x); (heap[x].nb || []).forEach((y) => q.push(y)); }
+    graph = [...s];
+  }
+  return { heap, labels, inCont, lists, trees, graph, kids };
+}
+
+function layoutTree(rootId, heap, kids) {
+  const pos = new Map(), edges = [];
+  let slot = 0, maxD = 0;
+  const rec = (id, d) => {
+    if (pos.has(id) || pos.size > 150) return null;
+    const e = heap[id];
+    maxD = Math.max(maxD, d);
+    pos.set(id, null);
+    if (e.k === "bin") {
+      if (e.l && heap[e.l] && !pos.has(e.l)) { rec(e.l, d + 1); edges.push([id, e.l, ""]); }
+      pos.set(id, { x: slot++, d });
+      if (e.r && heap[e.r] && !pos.has(e.r)) { rec(e.r, d + 1); edges.push([id, e.r, ""]); }
+    } else {
+      const xs = [];
+      for (const [c, lab] of kids(e)) {
+        if (pos.has(c)) continue;
+        rec(c, d + 1);
+        edges.push([id, c, lab]);
+        if (pos.get(c)) xs.push(pos.get(c).x);
+      }
+      pos.set(id, { x: xs.length ? (xs[0] + xs[xs.length - 1]) / 2 : slot++, d });
+    }
+    return pos.get(id);
+  };
+  rec(rootId, 0);
+  return { pos, edges, slots: Math.max(slot, 1), maxD };
+}
+
+function makeNodesView() {
+  const el = div("struct", `<div class="scroll"><div class="ncanvas"><div class="nlayer"></div><div class="ntags"></div></div></div>`);
+  const q = (s) => el.querySelector(s);
+  const tags = new Map();
+  const STEP = 80, NW = 46, NH = 38, TX = 46, TY = 64, R = 17;
+  return {
+    el,
+    update(N, ctx) {
+      const { heap, labels, inCont, lists, trees, graph, kids } = N;
+      const prevHeap = ctx.prev ? ctx.prev.heap || {} : null;
+      const at = new Map();     // id -> {x, y, w}: where to hang the variable tags
+      let html = "", y = 0, width = 0;
+      const color = (id) => labels.has(id) ? colorOf(labels.get(id)[0]) : null;
+      const changed = (id) => prevHeap && prevHeap[id] && prevHeap[id].val !== heap[id].val;
+
+      // linked lists
+      for (const ch of lists) {
+        const maxTags = Math.max(0, ...ch.ids.map((id) => at.has(id) ? 0 : (labels.get(id) || []).length));
+        ch.ids.forEach((id, i) => {
+          const e = heap[id], x = i * STEP, c = color(id);
+          const cls = ["lnode", inCont.has(id) ? "inq" : "", changed(id) ? "changed" : ""].join(" ");
+          const st = c ? `border-color:${c};box-shadow:0 0 0 1px ${c}` : "";
+          html += `<div class="${cls}" style="left:${x}px;top:${y}px;${st}" title="${esc(e.cls + (e.x ? " · " + e.x : ""))}">${esc(e.val)}</div>`;
+          html += `<div class="larrow" style="left:${x + NW}px;top:${y}px">→</div>`;
+          if (!at.has(id)) at.set(id, { x, y: y + NH + 4, w: NW });
+        });
+        const endX = ch.ids.length * STEP;
+        if (ch.cyc != null) html += `<div class="lend cyc" style="left:${endX}px;top:${y}px">↺ back to node ${ch.cyc} (${esc(heap[ch.ids[ch.cyc]].val)})</div>`;
+        else if (ch.more) html += `<div class="lend" style="left:${endX}px;top:${y}px">…</div>`;
+        else html += `<div class="lend" style="left:${endX}px;top:${y}px">None</div>`;
+        width = Math.max(width, endX + 200);
+        y += NH + 10 + maxTags * 16 + 14;
+      }
+
+      // trees (binary, n-ary, tries)
+      if (trees.length) {
+        let x0 = 0, svg = "", h = 0;
+        for (const rootId of trees) {
+          const L = layoutTree(rootId, heap, kids);
+          const X = (p) => x0 + 24 + p.x * TX, Y = (p) => 22 + p.d * TY;
+          for (const [a, b, lab] of L.edges) {
+            const pa = L.pos.get(a), pb = L.pos.get(b);
+            if (!pa || !pb) continue;
+            svg += `<line x1="${X(pa)}" y1="${Y(pa)}" x2="${X(pb)}" y2="${Y(pb)}"/>`;
+            if (lab) svg += `<text class="elab" x="${X(pa) + (X(pb) - X(pa)) * 0.7 + 9}" y="${Y(pa) + (Y(pb) - Y(pa)) * 0.7}">${esc(lab)}</text>`;
+          }
+          for (const [id, p] of L.pos) {
+            if (!p) continue;
+            const e = heap[id], c = color(id);
+            const ring = c ? ` style="stroke:${c};stroke-width:3"` : "";
+            svg += `<g class="${inCont.has(id) ? "inq" : ""}"><title>${esc(e.cls + (e.x ? " · " + e.x : ""))}</title>
+              <circle cx="${X(p)}" cy="${Y(p)}" r="${R}"${ring}${changed(id) ? ' class="changed"' : ""}/>
+              ${e.end ? `<circle class="endring" cx="${X(p)}" cy="${Y(p)}" r="${R - 4}"/>` : ""}
+              <text class="v" x="${X(p)}" y="${Y(p)}">${esc(String(e.val).slice(0, 4))}</text></g>`;
+            if (!at.has(id)) at.set(id, { x: X(p) - TX / 2, y: y + Y(p) + R + 2, w: TX });
+          }
+          x0 += L.slots * TX + 40;
+          h = Math.max(h, (L.maxD + 1) * TY + 20);
+        }
+        html += `<svg class="tree" style="top:${y}px" width="${x0}" height="${h}">${svg}</svg>`;
+        width = Math.max(width, x0);
+        y += h + 16;
+      }
+
+      // graph
+      if (graph && graph.length) {
+        const n = graph.length, rad = Math.max(60, n * 16), cx = rad + 30, cy = rad + 24;
+        const P = new Map(graph.map((id, i) => [id, { x: cx + rad * Math.cos(2 * Math.PI * i / n - Math.PI / 2), y: cy + rad * Math.sin(2 * Math.PI * i / n - Math.PI / 2) }]));
+        let svg = "";
+        const seen = new Set();
+        for (const id of graph) for (const nb of heap[id].nb || []) {
+          if (!P.has(nb)) continue;
+          const k = [id, nb].sort().join("-");
+          if (seen.has(k)) continue;
+          seen.add(k);
+          svg += `<line x1="${P.get(id).x}" y1="${P.get(id).y}" x2="${P.get(nb).x}" y2="${P.get(nb).y}"/>`;
+        }
+        for (const id of graph) {
+          const p = P.get(id), e = heap[id], c = color(id);
+          svg += `<g class="${inCont.has(id) ? "inq" : ""}"><circle cx="${p.x}" cy="${p.y}" r="${R}"${c ? ` style="stroke:${c};stroke-width:3"` : ""}/>
+            <text class="v" x="${p.x}" y="${p.y}">${esc(String(e.val).slice(0, 4))}</text></g>`;
+          if (!at.has(id)) at.set(id, { x: p.x - TX / 2, y: y + p.y + R + 2, w: TX });
+        }
+        const h = cy * 2 + 20;
+        html += `<svg class="tree" style="top:${y}px" width="${cx * 2 + 40}" height="${h}">${svg}</svg>`;
+        width = Math.max(width, cx * 2 + 40);
+        y += h;
+      }
+
+      q(".nlayer").innerHTML = html;
+      const canvas = q(".ncanvas");
+      canvas.style.width = width + "px";
+      canvas.style.height = y + "px";
+
+      // variable tags (persistent so they slide)
+      const keep = new Set();
+      for (const [id, vars] of labels) {
+        const p = at.get(id);
+        if (!p) continue;
+        vars.forEach((v, k) => {
+          keep.add(v);
+          const t = placeArrow(tags, q(".ntags"), v, "tag", esc(v), p.x, p.y + k * 16, colorOf(v), ctx.dur, false);
+          t.style.width = p.w + "px";
+        });
+      }
+      pruneArrows(tags, keep);
+    },
+  };
+}
+
+// ===================== Panels =====================
+function renderCmps(st) {
+  const cs = st.cmps || [];
+  if (!cs.length) { $("cmps").innerHTML = `<span class="empty">No comparisons on this line.</span>`; return; }
+  $("cmps").innerHTML = cs.map((c) => {
+    let vals, chip;
+    if (c.err) {
+      vals = "";
+      chip = `<span class="chip e">${esc(c.err)}</span>`;
+    } else {
+      vals = c.vals.map((v, i) => esc(v) + (i < c.ops.length ? ` <b>${esc(c.ops[i])}</b> ` : "")).join("");
+      chip = `<span class="chip ${c.res ? "t" : "f"}">${c.res ? "True" : "False"}</span>`;
+    }
+    return `<div class="cmp"><span class="src">${esc(c.src)}</span><span class="vals">${vals}</span>${chip}</div>`;
+  }).join("");
+}
+
+function renderStack(st) {
+  const n = st.stack.length;
+  $("stack").innerHTML = st.stack.map((fr, i) => {
+    if (fr.skip) return `<div class="frame">… ${fr.skip} more calls …</div>`;
+    const vars = i === n - 1 ? st.locals : fr.vars || {};
+    const args = fr.args.map((a) => `${a}=${vars[a] ? show(vars[a]) : "?"}`).join(", ");
+    return `<div class="frame${i === n - 1 ? " top" : ""}" title="${esc(fr.fn + "(" + args + ")")}"><span class="ln">line ${fr.line}</span>${esc(fr.fn)}(${esc(args)})</div>`;
+  }).reverse().join("");
+}
+
+function renderVars(st, prev) {
+  const keys = Object.keys(st.locals);
+  if (!keys.length) { $("vars").innerHTML = `<span class="empty">No local variables yet.</span>`; return; }
+  $("vars").innerHTML = `<table class="vars">` + keys.map((k) => {
+    const v = st.locals[k];
+    const changed = prev && JSON.stringify(prev.locals[k]) !== JSON.stringify(v);
+    const isPtr = (trace.pointers[k] && v.t === "int") || v.t === "ref";
+    const dot = `<span class="dot" style="background:${isPtr ? colorOf(k) : "transparent"}"></span>`;
+    let s = show(v);
+    if (s.length > 300) s = s.slice(0, 299) + "…";
+    return `<tr class="${changed ? "changed" : ""}"><td class="k">${dot}${esc(k)}</td>
+      <td class="t">${esc(v.t)}${v.n != null ? " · " + v.n : ""}</td><td class="v">${esc(s)}</td></tr>`;
+  }).join("") + `</table>`;
+}
+
+function renderOutput(st) {
+  const last = !st || cur === trace.steps.length - 1;
+  let html = esc(st ? st.out : trace.stdout || "");
+  const nl = () => (html ? "\n" : "");
+  if (last) {
+    if (trace.error) html += `<span class="bad">${nl()}✖ ${esc(trace.error)}</span>`;
+    else if (trace.result != null) html += `<span class="ok">${nl()}Result: ${esc(trace.result)}</span>`;
+    if (trace.check) {
+      html += trace.check.ok
+        ? `<span class="ok">\n✓ Matches expected</span>`
+        : `<span class="bad">\n✗ Expected: ${esc(trace.check.expected)}</span>`;
+    }
+  }
+  $("out").innerHTML = html || `<span class="empty">—</span>`;
+}
+</script>
+</body>
+</html>
