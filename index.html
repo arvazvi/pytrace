@@ -193,6 +193,7 @@
   .card-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
     color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-head .spacer { flex: 1; }
+  .card-head.m-only { display: none; }
   .card-head button { padding: 3px 9px; font-size: 12px; }
   .card-head .kbd { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .card-head .toggle { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px;
@@ -424,15 +425,23 @@
       width: auto !important; height: auto !important; transition: none !important; }
     .grid-stack > .grid-stack-item > .grid-stack-item-content.card { position: relative !important; inset: auto !important; }
     .grid-stack > .grid-stack-item > .ui-resizable-handle { display: none !important; }
-    #board > [gs-id="editor"] { order: 1; }
-    #board > [gs-id="inputs"] { order: 2; }
-    #board > [gs-id="player"] { order: 3; position: sticky !important; top: 54px; z-index: 15; }
-    #board > [gs-id="event"]  { order: 4; }
-    #board > [gs-id="structs"] { order: 5; }
-    #board > [gs-id="vars"]   { order: 6; }
+    #board > [gs-id="player"] { order: 1; position: sticky !important; top: 54px; z-index: 15; }
+    #board > [gs-id="editor"] { order: 2; }
+    #board > [gs-id="structs"] { order: 3; }
+    #board > [gs-id="vars"]   { order: 4; }
+    #board > [gs-id="inputs"] { order: 5; }
+    #board > [gs-id="event"]  { order: 6; }
     #board > [gs-id="stack"]  { order: 7; }
     #board > [gs-id="cmps"]   { order: 8; }
     #board > [gs-id="out"]    { order: 9; }
+    /* secondary cards start collapsed; tapping the title toggles them */
+    .card-head.m-only { display: flex; }
+    .m-toggle .card-head { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+    .m-toggle .card-head::after { content: ""; width: 7px; height: 7px; margin: 0 4px 3px auto; flex: none;
+      border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform .2s; }
+    .m-toggle.m-collapsed .card-head { border-bottom: 0; }
+    .m-toggle.m-collapsed .card-head::after { transform: rotate(-45deg); margin-bottom: 0; }
+    .m-toggle.m-collapsed .card-body { display: none !important; }
     #board > [gs-id="editor"] > .card { height: clamp(240px, 52svh, 560px); }
     #board > [gs-id="player"] > .card { box-shadow: var(--shadow-lg); }
     #board > :not([gs-id="editor"]) .card-body { flex: none; max-height: 70svh; }
@@ -528,6 +537,7 @@
     </div></div>
 
     <div class="grid-stack-item" gs-id="event"><div class="grid-stack-item-content card" id="eventCard">
+      <div class="card-head m-only"><h2>Current step</h2></div>
       <div class="card-body" id="event"><span class="empty">Write your solution, fill in the inputs and press <b>Run</b> (⌘/Ctrl + Enter).</span></div>
     </div></div>
 
@@ -1762,10 +1772,13 @@ function initLayout() {
   grid.on("resize", updateOverlays);
   grid.on("resizestop dragstop", refreshEditor);
   // compact screens show a fixed single-column stack (CSS); layout editing is desktop-only
-  matchMedia("(max-width: 820px)").addEventListener("change", (e) => {
+  const compactMQ = matchMedia("(max-width: 820px)");
+  compactMQ.addEventListener("change", (e) => {
     if (e.matches && editing) setEditing(false);
+    setupCollapsibles(e.matches);
     setTimeout(refreshEditor, 0);
   });
+  setupCollapsibles(compactMQ.matches);
   let rt = null;
   window.addEventListener("resize", () => {
     clearTimeout(rt);
@@ -1773,6 +1786,35 @@ function initLayout() {
   });
   updateOverlays();
   setTimeout(refreshEditor, 0);
+}
+
+// on compact screens the secondary cards collapse to their title bar; tap (or Enter/Space) to expand
+const COLLAPSIBLE = ["event", "stack", "cmps", "out"];
+COLLAPSIBLE.forEach((id) => {
+  const el = items.get(id), head = el.querySelector(".card-head");
+  el.classList.add("m-collapsed");
+  const toggle = () => {
+    if (!el.classList.contains("m-toggle")) return;
+    const collapsed = el.classList.toggle("m-collapsed");
+    head.setAttribute("aria-expanded", String(!collapsed));
+  };
+  head.addEventListener("click", toggle);
+  head.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+});
+function setupCollapsibles(on) {
+  COLLAPSIBLE.forEach((id) => {
+    const el = items.get(id), head = el.querySelector(".card-head");
+    el.classList.toggle("m-toggle", on);
+    if (on) {
+      head.setAttribute("role", "button");
+      head.tabIndex = 0;
+      head.setAttribute("aria-expanded", String(!el.classList.contains("m-collapsed")));
+    } else {
+      head.removeAttribute("role"); head.removeAttribute("tabindex"); head.removeAttribute("aria-expanded");
+    }
+  });
 }
 
 function hideCard(id) {
