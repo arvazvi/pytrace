@@ -128,7 +128,6 @@
   header h1 .brand { color: inherit; text-decoration: none; }
   header h1 .tagline { color: var(--muted); font-weight: 400; font-size: 13px; }
   @media (max-width: 1100px) { header h1 .tagline { display: none; } }
-  @media (max-width: 760px) { #shareBtn, #restoreBtn { display: none; } }
   header #shareBtn, header #restoreBtn { padding: 4px 10px; font-size: 12px; }
   #saved { color: var(--muted); font-size: 12px; transition: opacity .4s; white-space: nowrap; }
   #status { margin-left: auto; color: var(--muted); font-size: 13px; min-width: 0;
@@ -400,14 +399,67 @@
   pre#out { margin: 0; font-family: var(--mono); white-space: pre-wrap; word-break: break-all; }
   .ok { color: var(--ok); }
   .bad { color: var(--bad); }
+
+  /* ---- compact screens (phones, portrait tablets) ----
+     The card board becomes a single scrolling column in a fixed reading order. GridStack keeps its
+     12-column model (so the desktop layout is never touched); its inline positions are overridden here. */
+  @media (max-width: 820px) {
+    header { gap: 8px; padding: 0 10px; }
+    header .ver, #layoutBtn, .layout-tools .edit-only, #cardsMenu { display: none !important; }
+    header #shareBtn, header #restoreBtn { padding: 0; width: 34px; height: 32px; font-size: 14px; flex: none; }
+    header #shareBtn .lbl, header #restoreBtn .lbl { display: none; }
+    #status { font-size: 12px; }
+    /* "Saved" / "Link copied" become a small toast under the header instead of taking header space */
+    #saved { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); pointer-events: none;
+      padding: 5px 12px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg); color: var(--text); }
+    #saved:empty { display: none; }
+    /* runtime tooltip: full width below the header (the header's backdrop-filter makes it the containing block) */
+    .runtime .rt-tip { position: fixed; top: 48px; left: 10px; right: 10px; width: auto; }
+
+    main { padding: 8px; }
+    .grid-stack { display: flex !important; flex-direction: column; gap: 8px;
+      height: auto !important; min-height: 0 !important; }
+    .grid-stack > .grid-stack-item { position: relative !important; top: auto !important; left: auto !important;
+      width: auto !important; height: auto !important; transition: none !important; }
+    .grid-stack > .grid-stack-item > .grid-stack-item-content.card { position: relative !important; inset: auto !important; }
+    .grid-stack > .grid-stack-item > .ui-resizable-handle { display: none !important; }
+    #board > [gs-id="editor"] { order: 1; }
+    #board > [gs-id="inputs"] { order: 2; }
+    #board > [gs-id="player"] { order: 3; position: sticky !important; top: 54px; z-index: 15; }
+    #board > [gs-id="event"]  { order: 4; }
+    #board > [gs-id="structs"] { order: 5; }
+    #board > [gs-id="vars"]   { order: 6; }
+    #board > [gs-id="stack"]  { order: 7; }
+    #board > [gs-id="cmps"]   { order: 8; }
+    #board > [gs-id="out"]    { order: 9; }
+    #board > [gs-id="editor"] > .card { height: clamp(240px, 52svh, 560px); }
+    #board > [gs-id="player"] > .card { box-shadow: var(--shadow-lg); }
+    #board > :not([gs-id="editor"]) .card-body { flex: none; max-height: 70svh; }
+    #event { min-height: 56px; }
+
+    /* player: big step buttons on the first row, slider + counter + speed on the second */
+    .controls { flex-wrap: wrap; height: auto; padding: 8px 10px; gap: 6px; }
+    .controls button { flex: 1 1 calc(20% - 5px); min-width: 0; height: 38px; padding: 0; }
+    .controls input[type=range] { flex: 1 1 auto; min-width: 0; order: 1; height: 28px; }
+    #stepLabel { order: 1; min-width: 0; font-size: 12px; }
+    .controls select { order: 1; padding: 4px 6px; }
+
+    .inputs .row { grid-template-columns: 76px minmax(0, 1fr); }
+    .cmp .src { min-width: 0; }
+  }
+  /* touch devices: 16px inputs keep iOS Safari from zooming in on focus */
+  @media (pointer: coarse) {
+    .inputs input, .inputs select, .CodeMirror { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
 <header>
   <h1><a class="brand" href="/">PyTrace</a><span class="tagline"> · Python algorithm visualizer</span></h1>
   <span class="ver" title="PyTrace version">v1.0.0</span>
-  <button id="shareBtn" title="Copy a link to this code and its test cases">🔗 Share</button>
-  <button id="restoreBtn" class="hidden" title="Bring back the code you had before opening this link">↩ My previous code</button>
+  <button id="shareBtn" title="Copy a link to this code and its test cases" aria-label="Share">🔗<span class="lbl"> Share</span></button>
+  <button id="restoreBtn" class="hidden" title="Bring back the code you had before opening this link" aria-label="My previous code">↩<span class="lbl"> My previous code</span></button>
   <span id="saved"></span>
   <span id="status">Loading Python (Pyodide)…</span>
   <div class="runtime" id="runtime" tabindex="0" aria-label="Python runtime status" aria-describedby="rtTip">
@@ -463,7 +515,7 @@
         <button id="playBtn" title="Play (space)">▶</button>
         <button id="nextBtn" title="Next (→)">▶|</button>
         <button id="lastBtn" title="Last step">⏭</button>
-        <input type="range" id="slider" min="0" max="0" value="0">
+        <input type="range" id="slider" min="0" max="0" value="0" aria-label="Step">
         <span id="stepLabel">–</span>
         <select id="speed" title="Speed">
           <option value="1400">0.5×</option>
@@ -1704,12 +1756,16 @@ function initLayout() {
     column: 12, cellHeight: cellHeight(), margin: 6, float: false, animate: true,
     staticGrid: true, handle: ".card-overlay",
     resizable: { handles: "e, se, s, sw, w", autoHide: false },
-    columnOpts: { breakpoints: [{ w: 820, c: 1 }], layout: "list" },
   }, "#board");
 
   grid.on("change added removed", () => { persistLayout(); updateOverlays(); });
   grid.on("resize", updateOverlays);
   grid.on("resizestop dragstop", refreshEditor);
+  // compact screens show a fixed single-column stack (CSS); layout editing is desktop-only
+  matchMedia("(max-width: 820px)").addEventListener("change", (e) => {
+    if (e.matches && editing) setEditing(false);
+    setTimeout(refreshEditor, 0);
+  });
   let rt = null;
   window.addEventListener("resize", () => {
     clearTimeout(rt);
@@ -1994,8 +2050,7 @@ function renderEvent(st) {
     setEventTone(null);
     html = `➜ line ${st.line}: <b>${esc((editor.getLine(st.line - 1) || "").trim())}</b>`;
   }
-  html += `<div class="sub">in ${esc(top.fn)}() · depth ${st.stack.length}</div>`;
-  el.innerHTML = html;
+  el.innerHTML = `<div>${html}</div><div class="sub">in ${esc(top.fn)}() · depth ${st.stack.length}</div>`;
 }
 
 function cmpStateOf(st) {

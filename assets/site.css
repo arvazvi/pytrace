@@ -90,7 +90,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 12px; display: grid; gap: 12p
 .cols-2 > .card { display: flex; flex-direction: column; }
 .cols-2 > .card > .code { flex: 1; }
 .cols-2 .stack > .card:last-child { flex: 1; }
-.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px; }
 @media (max-width: 860px) { .cols-2 { grid-template-columns: 1fr; } }
 
 /* code card: looks like the editor (gutter + CodeMirror theme colors) */
